@@ -91,9 +91,13 @@ def handler(request, response):
         monitor.config = config
         monitor.setup_gemini()
 
-        # Load accounts from environment variable
-        accounts_str = os.environ.get('TWITTER_ACCOUNTS', 'DecagonAI,SierraPlatform')
-        accounts = [acc.strip() for acc in accounts_str.split(',') if acc.strip()]
+        # Load accounts from accounts.txt file
+        try:
+            accounts_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'accounts.txt')
+            with open(accounts_file, 'r') as f:
+                accounts = [line.strip() for line in f.readlines() if line.strip()]
+        except FileNotFoundError:
+            accounts = ['DecagonAI', 'SierraPlatform']  # fallback
 
         # Fetch and analyze recent tweets
         all_tweets = []
@@ -178,9 +182,13 @@ def intel_handler(request):
             monitor.config = config
             monitor.setup_gemini()
 
-            # Load accounts
-            accounts_str = os.environ.get('TWITTER_ACCOUNTS', 'DecagonAI,SierraPlatform')
-            accounts = [acc.strip() for acc in accounts_str.split(',') if acc.strip()]
+            # Load accounts from accounts.txt file
+            try:
+                accounts_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'accounts.txt')
+                with open(accounts_file, 'r') as f:
+                    accounts = [line.strip() for line in f.readlines() if line.strip()]
+            except FileNotFoundError:
+                accounts = ['DecagonAI', 'SierraPlatform']  # fallback
 
             # Fetch and analyze tweets
             all_tweets = []
