@@ -39,18 +39,21 @@ jobs:
         
         # Test Slack connectivity first
         echo "Testing Slack notification..."
-        python -c "
-import requests
-import json
-from datetime import datetime
-
-webhook_url = '${{ secrets.SLACK_WEBHOOK_URL }}'
-test_payload = {
-    'text': f'🧪 Test notification from GitHub Actions - {datetime.now().strftime(\"%Y-%m-%d %H:%M:%S\")} UTC'
-}
-response = requests.post(webhook_url, json=test_payload)
-print(f'Slack test response: {response.status_code}')
-        "
+        cat > test_slack.py << 'PYTHON_EOF'
+        import requests
+        import json
+        import os
+        from datetime import datetime
+        
+        webhook_url = os.environ.get('SLACK_WEBHOOK_URL')
+        test_payload = {
+            'text': f'🧪 Test notification from GitHub Actions - {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} UTC'
+        }
+        response = requests.post(webhook_url, json=test_payload)
+        print(f'Slack test response: {response.status_code}')
+        PYTHON_EOF
+        
+        python test_slack.py
         
         # Run main monitoring
         python twitter_monitor.py
