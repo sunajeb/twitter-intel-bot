@@ -1,9 +1,9 @@
-name: Manual Full Account Scan
+name: Manual Test Scan (First Account Only)
 on:
   workflow_dispatch: # Manual trigger only
 
 jobs:
-  full-scan:
+  test-scan:
     runs-on: ubuntu-latest
     
     steps:
@@ -34,8 +34,8 @@ jobs:
         }
         EOF
         
-        # Run manual full scan
-        python manual_full_scan.py
+        # Run manual test scan (first account only)
+        python manual_test_scan.py
         
     - name: Commit updated state files
       run: |

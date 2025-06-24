@@ -1,10 +1,9 @@
-name: Twitter Intelligence Monitor (Rotating)
+name: Daily Complete Intelligence Scan
 on:
   schedule:
-    # Run every 15 minutes (respects Twitter API rate limits)
-    # Real-time notifications sent immediately when news found
-    # Dynamic account rotation - works with any number of accounts in accounts.txt
-    - cron: '*/15 * * * *'
+    # Start at 5:00 AM IST daily (23:30 UTC) 
+    # Scans all accounts once, sends complete summary when done
+    - cron: '30 23 * * *'
   workflow_dispatch: # Allow manual triggering
 
 jobs:
@@ -39,8 +38,8 @@ jobs:
         }
         EOF
         
-        # Run Twitter monitoring
-        python twitter_monitor.py
+        # Run complete daily scan
+        python daily_complete_scan.py
         
     - name: Commit updated state files
       run: |
