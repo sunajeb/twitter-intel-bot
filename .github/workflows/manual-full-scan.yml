@@ -1,14 +1,9 @@
-name: Twitter Intelligence Monitor (Rotating)
+name: Manual Full Account Scan
 on:
-  schedule:
-    # Run every 15 minutes (respects Twitter API rate limits)
-    # Real-time notifications sent immediately when news found
-    # Dynamic account rotation - works with any number of accounts in accounts.txt
-    - cron: '*/15 * * * *'
-  workflow_dispatch: # Allow manual triggering
+  workflow_dispatch: # Manual trigger only
 
 jobs:
-  monitor:
+  full-scan:
     runs-on: ubuntu-latest
     
     steps:
@@ -25,7 +20,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         
-    - name: Run Twitter monitoring
+    - name: Run full scan of all accounts
       env:
         TWITTER_BEARER_TOKEN: ${{ secrets.TWITTER_BEARER_TOKEN }}
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -39,13 +34,13 @@ jobs:
         }
         EOF
         
-        # Run Twitter monitoring
-        python twitter_monitor.py
+        # Run manual full scan
+        python manual_full_scan.py
         
     - name: Commit updated state files
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add daily_intelligence.json rotation_state.json user_id_cache.json || true
-        git diff --staged --quiet || git commit -m "Update intelligence and rotation state [skip ci]"
+        git diff --staged --quiet || git commit -m "Update state after manual full scan [skip ci]"
         git push || true

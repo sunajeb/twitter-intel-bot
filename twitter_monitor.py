@@ -48,37 +48,43 @@ class TwitterMonitor:
         self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
     
     def fetch_twitter_data(self, username: str) -> List[Tweet]:
-        """Fetch recent tweets from a Twitter username using Twitter API v2"""
+        """Fetch recent tweets from a Twitter username using Twitter API v2 with caching"""
+        from user_cache import UserIDCache
+        
         bearer_token = self.config.get('twitter_bearer_token')
         if not bearer_token:
             print("Twitter Bearer Token not found in config")
             return []
         
-        # Calculate today's date for filtering (00:00 UTC today)
-        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).strftime('%Y-%m-%dT%H:%M:%SZ')
+        # Calculate last 24 hours for filtering
+        from datetime import timezone, timedelta
+        utc_now = datetime.now(timezone.utc)
+        last_24h_start = (utc_now - timedelta(hours=24)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        print(f"🕐 Fetching tweets from {username} since: {last_24h_start} (UTC) [Last 24 hours]")
         
-        url = f"https://api.twitter.com/2/users/by/username/{username}"
-        headers = {"Authorization": f"Bearer {bearer_token}"}
+        # Get user ID using cache (saves API calls!)
+        cache = UserIDCache()
+        user_id = cache.get_user_id(username, bearer_token)
         
-        # Get user ID first
-        response = requests.get(url, headers=headers)
-        if response.status_code != 200:
-            print(f"Error fetching user ID for {username}: {response.text}")
+        if not user_id:
+            print(f"Could not get user ID for {username}")
             return []
         
-        user_id = response.json()['data']['id']
-        
-        # Fetch recent tweets from today only
+        # Fetch recent tweets from last 24 hours
         tweets_url = f"https://api.twitter.com/2/users/{user_id}/tweets"
+        headers = {"Authorization": f"Bearer {bearer_token}"}
         params = {
-            'max_results': 20,  # Increased to catch more tweets
-            'start_time': today_start,
-            'tweet.fields': 'created_at,public_metrics,in_reply_to_user_id,referenced_tweets',
+            'max_results': 10,  # Reduced from 20 to minimize data usage
+            'start_time': last_24h_start,
+            'tweet.fields': 'created_at,in_reply_to_user_id,referenced_tweets',  # Removed public_metrics to reduce payload
             'exclude': 'retweets'  # Include replies but exclude retweets
         }
         
         response = requests.get(tweets_url, headers=headers, params=params)
-        if response.status_code != 200:
+        if response.status_code == 429:
+            print(f"⚠️ Rate limit hit for @{username} tweet fetch - skipping this account for now")
+            return []
+        elif response.status_code != 200:
             print(f"Error fetching tweets for {username}: {response.text}")
             return []
         
@@ -282,11 +288,12 @@ class TwitterMonitor:
                     best_match_url = tweets[0].url
                 
                 if best_match_url:
-                    # Format as Slack link: <URL|🔗>
-                    formatted_line = f"{line_without_emoji} <{best_match_url}|🔗>"
-                    formatted_lines.append(formatted_line)
+                    # Format with link on next line for better readability
+                    formatted_lines.append(line_without_emoji)
+                    formatted_lines.append(f"<{best_match_url}|🔗>")
                 else:
-                    formatted_lines.append(line)
+                    # Remove emoji if no URL found
+                    formatted_lines.append(line_without_emoji)
             else:
                 formatted_lines.append(line)
         
@@ -395,46 +402,56 @@ _Competitive Implications:_ Their focus on sentiment detection and enterprise cl
             print(f"Failed to send email: {e}")
     
     def load_accounts(self, accounts_file: str = "accounts.txt") -> List[str]:
-        """Load Twitter accounts and company mappings from file"""
+        """Load Twitter accounts using rotation system for API limits"""
+        from account_rotation import AccountRotator
+        
+        # Use rotator to get accounts for this run
+        rotator = AccountRotator(accounts_file)
+        account_tuples = rotator.get_accounts_for_this_run()
+        
+        # Extract accounts and build company mapping
         accounts = []
         self.account_to_company = {}
         
+        for account, company in account_tuples:
+            accounts.append(account)
+            self.account_to_company[account] = company
+        
+        # Log rotation info
+        rotation_info = rotator.get_rotation_info()
+        print(f"🔄 {rotation_info}")
+        print(f"📊 Monitoring accounts this run: {[f'@{acc}' for acc in accounts]}")
+        
+        return accounts
+    
+    def get_tracked_accounts_list(self) -> str:
+        """Get formatted list of all tracked accounts"""
         try:
-            with open(accounts_file, 'r') as f:
+            with open("accounts.txt", 'r') as f:
+                accounts = []
                 for line in f.readlines():
                     line = line.strip()
-                    if not line:
-                        continue
-                    
-                    # Support both formats: "account:company" and "account"
                     if ':' in line:
                         account, company = line.split(':', 1)
-                        account = account.strip()
-                        company = company.strip()
-                        accounts.append(account)
-                        self.account_to_company[account] = company
-                    else:
-                        # Default format - use account name as company
-                        account = line.strip()
-                        accounts.append(account)
-                        self.account_to_company[account] = account
-                        
-                return accounts
+                        accounts.append(f"@{account.strip()}")
+                    elif line:
+                        accounts.append(f"@{line.strip()}")
+                return ", ".join(accounts)
         except FileNotFoundError:
-            print(f"Accounts file {accounts_file} not found. Using default accounts.")
-            default_accounts = ['DecagonAI', 'SierraPlatform']
-            self.account_to_company = {'DecagonAI': 'Decagon', 'SierraPlatform': 'Sierra'}
-            return default_accounts
+            return "@DecagonAI, @SierraPlatform"
     
     def run_daily_analysis(self):
         """Main function to run the daily analysis"""
+        import time
         print(f"Starting daily analysis - {datetime.now()}")
         
         all_tweets = []
         accounts = self.load_accounts()
         
-        # Fetch tweets from all accounts
-        for username in accounts:
+        # Process accounts one by one (Free tier limit: 1 tweet fetch per 15min)
+        for i, username in enumerate(accounts):
+            # No delay needed since we're only processing 1 account per run
+            
             tweets = self.fetch_twitter_data(username)
             all_tweets.extend(tweets)
             print(f"Fetched {len(tweets)} tweets from @{username}")
@@ -443,10 +460,90 @@ _Competitive Implications:_ Their focus on sentiment detection and enterprise cl
         analysis = self.analyze_tweets_with_gemini(all_tweets)
         print(f"Analysis result: {analysis[:100]}...")
         
-        # Send notifications
-        self.send_slack_notification(analysis)
+        # Handle intelligence accumulation and notifications
+        self.handle_intelligence_reporting(analysis, f"🔄 {accounts} accounts")
         
         print("Daily analysis completed")
+        
+    def handle_intelligence_reporting(self, analysis: str, run_info: str = ""):
+        """Handle both immediate and daily accumulated intelligence reporting"""
+        from daily_summary import DailyIntelligenceTracker
+        
+        tracker = DailyIntelligenceTracker()
+        
+        # Add to daily accumulation
+        tracker.add_intelligence(analysis, run_info)
+        
+        # Send immediate notification for important news
+        if analysis and analysis != "Nothing important today":
+            # Send immediate Slack notification with rotation context
+            self.send_immediate_slack_notification(analysis, run_info)
+        
+        # Check if it's time for daily summary
+        if tracker.should_send_daily_summary():
+            daily_summary = tracker.get_daily_summary()
+            self.send_daily_summary_notification(daily_summary)
+            
+        # Cleanup old data weekly
+        tracker.cleanup_old_data()
+        
+    def send_immediate_slack_notification(self, message: str, run_info: str = ""):
+        """Send immediate Slack notification with clean format"""
+        webhook_url = self.config.get('slack_webhook_url')
+        if not webhook_url:
+            print("Slack webhook URL not configured")
+            return
+        
+        # Get list of accounts being tracked
+        accounts_list = self.get_tracked_accounts_list()
+        
+        payload = {
+            "text": f"Competitive Intelligence Alert",
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"*{datetime.now().strftime('%Y-%m-%d')}*\n\n{message}\n\n📊 Tracking: {accounts_list}"
+                    }
+                }
+            ]
+        }
+        
+        response = requests.post(webhook_url, json=payload)
+        if response.status_code == 200:
+            print("Immediate Slack notification sent successfully")
+        else:
+            print(f"Failed to send immediate Slack notification: {response.text}")
+            
+    def send_daily_summary_notification(self, summary: str):
+        """Send end-of-day summary notification"""
+        webhook_url = self.config.get('slack_webhook_url')
+        if not webhook_url:
+            print("Slack webhook URL not configured")
+            return
+        
+        current_date = datetime.now().strftime('%Y-%m-%d')
+        accounts_list = self.get_tracked_accounts_list()
+        
+        payload = {
+            "text": f"Daily Intelligence Summary - {current_date}",
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"*{current_date}*\n\n{summary}\n\n📊 Tracking: {accounts_list}"
+                    }
+                }
+            ]
+        }
+        
+        response = requests.post(webhook_url, json=payload)
+        if response.status_code == 200:
+            print("Daily summary Slack notification sent successfully")
+        else:
+            print(f"Failed to send daily summary notification: {response.text}")
 
 
 if __name__ == "__main__":

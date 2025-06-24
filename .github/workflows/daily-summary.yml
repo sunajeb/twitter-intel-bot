@@ -1,14 +1,13 @@
-name: Twitter Intelligence Monitor (Rotating)
+name: Daily Summary (7:30 AM IST)
 on:
   schedule:
-    # Run every 15 minutes (respects Twitter API rate limits)
-    # Real-time notifications sent immediately when news found
-    # Dynamic account rotation - works with any number of accounts in accounts.txt
-    - cron: '*/15 * * * *'
+    # 7:30 AM IST = 2:00 AM UTC (IST is UTC+5:30)
+    # Runs after all 12 accounts have been processed (last one finishes by ~7:06 AM IST)
+    - cron: '0 2 * * *'
   workflow_dispatch: # Allow manual triggering
 
 jobs:
-  monitor:
+  daily-summary:
     runs-on: ubuntu-latest
     
     steps:
@@ -25,7 +24,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         
-    - name: Run Twitter monitoring
+    - name: Send daily summary
       env:
         TWITTER_BEARER_TOKEN: ${{ secrets.TWITTER_BEARER_TOKEN }}
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -39,13 +38,5 @@ jobs:
         }
         EOF
         
-        # Run Twitter monitoring
-        python twitter_monitor.py
-        
-    - name: Commit updated state files
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add daily_intelligence.json rotation_state.json user_id_cache.json || true
-        git diff --staged --quiet || git commit -m "Update intelligence and rotation state [skip ci]"
-        git push || true
+        # Send daily summary
+        python daily_summary_sender.py

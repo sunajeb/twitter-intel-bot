@@ -1,6 +1,1 @@
 DecagonAI:Decagon
-SierraPlatform:Sierra
-btaylor:Sierra
-claybavor:Sierra
-RachelWhetstone:Meta
-AshwinSreenivas:Perplexity
