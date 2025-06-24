@@ -52,8 +52,8 @@ def daily_complete_scan():
         
         # Add delay between accounts (except first) to respect 15-min rate limits
         if i > 0:
-            delay = 60 if len(all_accounts) > 10 else 30  # Longer delay for many accounts
-            print(f"⏱️ Waiting {delay} seconds between accounts...")
+            delay = 15 * 60  # 15 minutes = 900 seconds (when rate limits reset)
+            print(f"⏱️ Waiting {delay//60} minutes between accounts to respect API rate limits...")
             time.sleep(delay)
         
         try:
