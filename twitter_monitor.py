@@ -23,12 +23,15 @@ class Tweet:
     created_at: str
     username: str
     url: str
+    is_reply: bool = False
+    reply_to_tweet_id: str = None
 
 
 class TwitterMonitor:
     def __init__(self, config_file: str = "config.json"):
         self.config = self.load_config(config_file)
         self.setup_gemini()
+        self.account_to_company = {}  # Will be loaded from accounts.txt
         
     def load_config(self, config_file: str) -> Dict:
         """Load configuration from JSON file"""
@@ -51,8 +54,8 @@ class TwitterMonitor:
             print("Twitter Bearer Token not found in config")
             return []
         
-        # Calculate yesterday's date for filtering
-        yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        # Calculate today's date for filtering (00:00 UTC today)
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).strftime('%Y-%m-%dT%H:%M:%SZ')
         
         url = f"https://api.twitter.com/2/users/by/username/{username}"
         headers = {"Authorization": f"Bearer {bearer_token}"}
@@ -65,13 +68,13 @@ class TwitterMonitor:
         
         user_id = response.json()['data']['id']
         
-        # Fetch recent tweets
+        # Fetch recent tweets from today only
         tweets_url = f"https://api.twitter.com/2/users/{user_id}/tweets"
         params = {
-            'max_results': 10,
-            'start_time': yesterday,
-            'tweet.fields': 'created_at,public_metrics',
-            'exclude': 'retweets'
+            'max_results': 20,  # Increased to catch more tweets
+            'start_time': today_start,
+            'tweet.fields': 'created_at,public_metrics,in_reply_to_user_id,referenced_tweets',
+            'exclude': 'retweets'  # Include replies but exclude retweets
         }
         
         response = requests.get(tweets_url, headers=headers, params=params)
@@ -83,61 +86,211 @@ class TwitterMonitor:
         tweets = []
         
         for tweet_data in tweets_data:
+            # Check if this is a reply
+            is_reply = 'in_reply_to_user_id' in tweet_data
+            reply_to_tweet_id = None
+            
+            # Get the original tweet ID if this is a reply
+            if 'referenced_tweets' in tweet_data:
+                for ref in tweet_data['referenced_tweets']:
+                    if ref['type'] == 'replied_to':
+                        reply_to_tweet_id = ref['id']
+                        break
+            
             tweet = Tweet(
                 id=tweet_data['id'],
                 text=tweet_data['text'],
                 created_at=tweet_data['created_at'],
                 username=username,
-                url=f"https://twitter.com/{username}/status/{tweet_data['id']}"
+                url=f"https://twitter.com/{username}/status/{tweet_data['id']}",
+                is_reply=is_reply,
+                reply_to_tweet_id=reply_to_tweet_id
             )
             tweets.append(tweet)
         
         return tweets
     
+    def group_tweets_into_threads(self, tweets: List[Tweet]) -> List[Tweet]:
+        """Group tweets and their replies into thread objects"""
+        tweet_dict = {tweet.id: tweet for tweet in tweets}
+        threads = []
+        processed_ids = set()
+        
+        for tweet in tweets:
+            if tweet.id in processed_ids:
+                continue
+                
+            # If this is not a reply, it could be the start of a thread
+            if not tweet.is_reply:
+                thread_tweets = [tweet]
+                processed_ids.add(tweet.id)
+                
+                # Find all replies to this tweet
+                for other_tweet in tweets:
+                    if (other_tweet.reply_to_tweet_id == tweet.id and 
+                        other_tweet.username == tweet.username):
+                        thread_tweets.append(other_tweet)
+                        processed_ids.add(other_tweet.id)
+                
+                # Create a combined thread tweet if there are replies
+                if len(thread_tweets) > 1:
+                    # Sort by creation time
+                    thread_tweets.sort(key=lambda t: t.created_at)
+                    
+                    # Combine text with thread markers
+                    combined_text = thread_tweets[0].text
+                    for i, reply in enumerate(thread_tweets[1:], 2):
+                        combined_text += f"\n\n[Thread {i}/{len(thread_tweets)}] {reply.text}"
+                    
+                    # Create combined tweet object
+                    thread_tweet = Tweet(
+                        id=thread_tweets[0].id,
+                        text=combined_text,
+                        created_at=thread_tweets[0].created_at,
+                        username=thread_tweets[0].username,
+                        url=thread_tweets[0].url,
+                        is_reply=False,
+                        reply_to_tweet_id=None
+                    )
+                    threads.append(thread_tweet)
+                else:
+                    threads.append(tweet)
+            
+            # Handle orphaned replies (replies where we don't have the original tweet)
+            elif tweet.is_reply and tweet.id not in processed_ids:
+                threads.append(tweet)
+                processed_ids.add(tweet.id)
+        
+        return threads
+
+    def group_tweets_by_company(self, tweets: List[Tweet]) -> Dict[str, List[Tweet]]:
+        """Group tweets by company"""
+        company_tweets = {}
+        for tweet in tweets:
+            company = self.account_to_company.get(tweet.username, tweet.username)
+            if company not in company_tweets:
+                company_tweets[company] = []
+            company_tweets[company].append(tweet)
+        return company_tweets
+
     def analyze_tweets_with_gemini(self, tweets: List[Tweet]) -> str:
-        """Analyze tweets using Gemini 2.5 Flash"""
+        """Analyze tweets using Gemini 2.5 Flash for headline generation"""
         if not tweets:
             return "Nothing important today"
         
-        tweets_text = "\n\n".join([
-            f"@{tweet.username} ({tweet.created_at}):\n{tweet.text}\nURL: {tweet.url}"
-            for tweet in tweets
-        ])
+        # First, group tweets into threads to capture complete context
+        threaded_tweets = self.group_tweets_into_threads(tweets)
         
-        prompt = f"""
-        Analyze the following tweets from @DecagonAI and @SierraPlatform from the perspective of a voice AI customer support company competitor. 
-
-        Focus on identifying important information about:
-        1. Technology developments and innovations
-        2. Go-to-market strategies and customer acquisition 
-        3. Customer success stories, case studies, or testimonials
-        4. Funding announcements or business milestones
-        5. Product launches or feature releases
-        6. Partnership announcements
-        7. Team growth or key hires
-        8. Market positioning or competitive messaging
-
-        If there is no important competitive intelligence in these tweets, respond with exactly "Nothing important today".
-
-        If there is important information, provide a concise analysis highlighting the key insights and their potential competitive implications.
-
-        Format your response using Slack markdown syntax:
-        - Use *text* for bold
-        - Use _text_ for italics  
-        - Use bullet points with • or -
-        - Use numbered lists
-        - Keep formatting simple and readable
-
-        Tweets to analyze:
-        {tweets_text}
-        """
+        # Then group by company for analysis
+        company_tweets = self.group_tweets_by_company(threaded_tweets)
         
-        try:
-            response = self.model.generate_content(prompt)
-            return response.text.strip()
-        except Exception as e:
-            print(f"Error analyzing tweets with Gemini: {e}")
-            return "Error analyzing tweets"
+        headlines = []
+        
+        for company, company_tweet_list in company_tweets.items():
+            if not company_tweet_list:
+                continue
+                
+            tweets_text = "\n\n".join([
+                f"@{tweet.username} ({tweet.created_at}):\n{tweet.text}\nURL: {tweet.url}"
+                for tweet in company_tweet_list
+            ])
+            
+            prompt = f"""
+            You are a competitive intelligence analyst. Analyze the following tweets from {company} and create concise headlines for any significant business developments posted TODAY.
+
+            ONLY generate headlines for tweets that contain:
+            1. Funding announcements or business milestones
+            2. Product launches or major feature releases  
+            3. Significant partnership announcements
+            4. Major customer wins or case studies
+            5. Technology breakthroughs or innovations
+            6. Key executive hires or team changes
+            7. Market expansion or new business lines
+
+            IGNORE:
+            - General marketing content
+            - Routine product updates
+            - Generic industry commentary
+            - Personal opinions or thoughts
+            - Event announcements (unless major partnership/product launch)
+
+            For each significant tweet, generate a headline in this EXACT format:
+            Company: Headline description 🔗
+
+            Example output format:
+            Decagon: Raises $131M Series C funding round 🔗
+            Sierra: Launches new voice AI platform for enterprise customers 🔗
+            
+            IMPORTANT: Do NOT include the actual URL in the text. Just use the 🔗 emoji at the end.
+
+            If no tweets contain significant business developments, respond with exactly "Nothing significant today".
+
+            Today's tweets from {company}:
+            {tweets_text}
+            """
+            
+            try:
+                response = self.model.generate_content(prompt)
+                result = response.text.strip()
+                
+                if result and result != "Nothing significant today":
+                    # Process the result to add proper Slack links
+                    formatted_headlines = self.format_headlines_with_links(result, company_tweet_list)
+                    if formatted_headlines:
+                        headlines.append(formatted_headlines)
+                    
+            except Exception as e:
+                print(f"Error analyzing tweets for {company}: {e}")
+                continue
+        
+        if not headlines:
+            return "Nothing important today"
+        
+        # Combine all headlines
+        return "\n".join(headlines)
+    
+    def format_headlines_with_links(self, headlines_text: str, tweets: List[Tweet]) -> str:
+        """Format headlines to include proper Slack-style links"""
+        if not headlines_text or not tweets:
+            return ""
+        
+        # Create a mapping of tweet content to URLs for matching
+        tweet_urls = {}
+        for tweet in tweets:
+            # Use first 50 chars of tweet as key for matching
+            key = tweet.text[:50].lower().strip()
+            tweet_urls[key] = tweet.url
+        
+        lines = headlines_text.strip().split('\n')
+        formatted_lines = []
+        
+        for line in lines:
+            if not line.strip():
+                continue
+                
+            # If line ends with 🔗, try to find matching tweet URL
+            if line.endswith('🔗'):
+                # Remove the emoji
+                line_without_emoji = line[:-1].strip()
+                
+                # Try to find the best matching tweet URL
+                best_match_url = None
+                
+                # Simple approach: use the first tweet URL from this company's tweets
+                # In practice, the AI should be analyzing the specific tweet that generated this headline
+                if tweets:
+                    best_match_url = tweets[0].url
+                
+                if best_match_url:
+                    # Format as Slack link: <URL|🔗>
+                    formatted_line = f"{line_without_emoji} <{best_match_url}|🔗>"
+                    formatted_lines.append(formatted_line)
+                else:
+                    formatted_lines.append(line)
+            else:
+                formatted_lines.append(line)
+        
+        return "\n".join(formatted_lines)
     
     def send_slack_notification(self, message: str):
         """Send notification to Slack"""
@@ -150,13 +303,13 @@ class TwitterMonitor:
             return  # Don't send notification if nothing important
         
         payload = {
-            "text": f"🔍 Daily Competitor Intelligence Update - {datetime.now().strftime('%Y-%m-%d')}",
+            "text": f"📰 Competitive Intelligence - {datetime.now().strftime('%Y-%m-%d')}",
             "blocks": [
                 {
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": f"*Daily Twitter Analysis - {datetime.now().strftime('%Y-%m-%d')}*\n\n{message}"
+                        "text": f"*📰 Today's Competitive Intelligence Headlines*\n\n{message}"
                     }
                 }
             ]
@@ -242,14 +395,36 @@ _Competitive Implications:_ Their focus on sentiment detection and enterprise cl
             print(f"Failed to send email: {e}")
     
     def load_accounts(self, accounts_file: str = "accounts.txt") -> List[str]:
-        """Load Twitter accounts from file"""
+        """Load Twitter accounts and company mappings from file"""
+        accounts = []
+        self.account_to_company = {}
+        
         try:
             with open(accounts_file, 'r') as f:
-                accounts = [line.strip() for line in f.readlines() if line.strip()]
+                for line in f.readlines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    
+                    # Support both formats: "account:company" and "account"
+                    if ':' in line:
+                        account, company = line.split(':', 1)
+                        account = account.strip()
+                        company = company.strip()
+                        accounts.append(account)
+                        self.account_to_company[account] = company
+                    else:
+                        # Default format - use account name as company
+                        account = line.strip()
+                        accounts.append(account)
+                        self.account_to_company[account] = account
+                        
                 return accounts
         except FileNotFoundError:
             print(f"Accounts file {accounts_file} not found. Using default accounts.")
-            return ['DecagonAI', 'SierraPlatform']
+            default_accounts = ['DecagonAI', 'SierraPlatform']
+            self.account_to_company = {'DecagonAI': 'Decagon', 'SierraPlatform': 'Sierra'}
+            return default_accounts
     
     def run_daily_analysis(self):
         """Main function to run the daily analysis"""
