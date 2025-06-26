@@ -10,3 +10,7 @@ Replicant_AI:Replicant
 cresta:Cresta
 VoiceflowHQ:Voiceflow
 ada_cx:Ada
+tomaauto:TomaAuto
+numa_helps:Numa
+stradahq:Strada
+hume_ai:Hume
