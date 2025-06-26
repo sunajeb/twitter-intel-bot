@@ -4,3 +4,9 @@ btaylor:Sierra
 claybavor:Sierra
 RachelWhetstone:Meta
 AshwinSreenivas:Perplexity
+yellowdotai:Yellow.ai
+polyaivoice:PolyAI
+Replicant_AI:Replicant
+cresta:Cresta
+VoiceflowHQ:Voiceflow
+ada_cx:Ada
