@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Daily complete intelligence scan - scans all accounts once and sends one complete summary
-Starts at 5 AM IST, processes all accounts with rate limit delays, sends final compiled result
+Starts at 11 PM IST, processes all accounts with rate limit delays, sends final compiled result
+36 accounts × 15min delays = 9 hours total (completes by 8 AM IST)
 """
 
 import time

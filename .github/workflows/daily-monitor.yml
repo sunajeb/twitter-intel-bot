@@ -1,9 +1,9 @@
 name: Daily Complete Intelligence Scan
 on:
   schedule:
-    # Start at 5:00 AM IST daily (23:30 UTC) 
-    # 6 accounts × 15min delays = ~90 minutes total (completes by 6:30 AM IST)
-    - cron: '30 23 * * *'
+    # Start at 11:00 PM IST daily (17:30 UTC) 
+    # 36 accounts × 15min delays = 540 minutes = 9 hours total (completes by 8:00 AM IST)
+    - cron: '30 17 * * *'
   workflow_dispatch: # Allow manual triggering
 
 jobs:
