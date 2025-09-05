@@ -81,25 +81,177 @@ def extract_json_from_markdown(markdown_text: str) -> str:
     return json_content.strip()
 
 
-def format_competitor_news_from_raw_response(raw_response: str) -> str:
+def parse_markdown_response(markdown_text: str) -> Dict[str, Any]:
     """
-    Convert raw competitor API response (with markdown) into clean Slack-formatted text
+    Parse the new markdown format from competitor API
     
     Args:
-        raw_response: Raw response from competitor API (may include markdown)
+        markdown_text: Markdown response from API
+        
+    Returns:
+        Dictionary in the same format as the old JSON API
+    """
+    # Remove markdown code block markers
+    content = extract_json_from_markdown(markdown_text)
+    
+    sections = {}
+    current_section = None
+    current_items = {}
+    
+    for line in content.split('\n'):
+        line = line.strip()
+        
+        # Check for section headers (### Section Name)
+        if line.startswith('### '):
+            # Save previous section if exists
+            if current_section and current_items:
+                sections[current_section] = current_items
+                current_items = {}
+            
+            # Extract section name
+            section_name = line[4:].strip()
+            current_section = section_name
+            
+        # Check for list items (*   **Company:** ...)
+        elif line.startswith('*   **') and ':**' in line:
+            # Extract company name and content
+            try:
+                # Format: *   **Company:** Content (source: <url>)
+                company_part = line[6:]  # Remove "*   **"
+                if ':**' in company_part:
+                    company, content = company_part.split(':**', 1)
+                    company = company.strip()
+                    content = content.strip()
+                    
+                    # Clean up the content
+                    if content.endswith('.'):
+                        content = content[:-1]
+                    
+                    # Store in dictionary format: {company: content}
+                    current_items[company] = content
+            except Exception as e:
+                print(f"Error parsing line: {line} - {e}")
+                continue
+    
+    # Add the last section
+    if current_section and current_items:
+        sections[current_section] = current_items
+    
+    return sections
+
+
+def format_raw_text_as_slack(content: str) -> str:
+    """
+    Format raw text content for Slack with basic structure
+    
+    Args:
+        content: Raw text content
+        
+    Returns:
+        Formatted text for Slack
+    """
+    lines = content.split('\n')
+    formatted_lines = []
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+            
+        # Convert markdown headers to Slack format
+        if line.startswith('### '):
+            section_name = line[4:].strip()
+            formatted_lines.append(f"*{section_name}*")
+        elif line.startswith('*   **') and ':**' in line:
+            # Convert list items to Slack format
+            try:
+                company_part = line[6:]  # Remove "*   **"
+                if ':**' in company_part:
+                    company, content = company_part.split(':**', 1)
+                    company = company.strip()
+                    content = content.strip()
+                    
+                    # Clean up content
+                    if content.endswith('.'):
+                        content = content[:-1]
+                    
+                    formatted_lines.append(f"• *{company}*: {content}")
+            except:
+                # If parsing fails, just add the line as-is
+                formatted_lines.append(f"• {line}")
+        else:
+            # Add other lines as-is
+            formatted_lines.append(line)
+    
+    return "\n".join(formatted_lines)
+
+
+def format_fallback_response(raw_response: str) -> str:
+    """
+    Format raw response as fallback when all parsing fails
+    
+    Args:
+        raw_response: Raw API response
+        
+    Returns:
+        Formatted text for Slack
+    """
+    # Extract content from markdown blocks if present
+    content = extract_json_from_markdown(raw_response)
+    
+    # Truncate if too long (Slack has message limits)
+    if len(content) > 3000:
+        content = content[:3000] + "\n\n... (truncated)"
+    
+    # Add a header to indicate this is raw data
+    return f"*📊 Competitor News (Raw Format)*\n\n```\n{content}\n```"
+
+
+def format_competitor_news_from_raw_response(raw_response: str) -> str:
+    """
+    Convert raw competitor API response into clean Slack-formatted text
+    Handles multiple response formats with fallback to raw response
+    
+    Args:
+        raw_response: Raw response from competitor API
         
     Returns:
         Formatted text ready for Slack with hyperlinked emojis
     """
+    if not raw_response or not raw_response.strip():
+        return "No competitor news available"
+    
+    # Method 1: Try JSON parsing (original format)
     try:
-        # Extract JSON from markdown if present
         json_content = extract_json_from_markdown(raw_response)
-        
-        # Parse and format
         api_response = json.loads(json_content)
-        return format_competitor_news(api_response)
-    except json.JSONDecodeError as e:
-        return f"Error parsing JSON: {e}"
+        if api_response:  # Check if not empty
+            return format_competitor_news(api_response)
+    except (json.JSONDecodeError, ValueError):
+        pass
+    
+    # Method 2: Try markdown parsing (new format)
+    try:
+        api_response = parse_markdown_response(raw_response)
+        if api_response:  # Check if not empty
+            return format_competitor_news(api_response)
+    except Exception as e:
+        print(f"Markdown parsing failed: {e}")
+    
+    # Method 3: Try simple text parsing (fallback)
+    try:
+        # Extract content from markdown blocks if present
+        content = extract_json_from_markdown(raw_response)
+        
+        # If it looks like structured text, try to format it
+        if content and len(content) > 50:
+            return format_raw_text_as_slack(content)
+    except Exception as e:
+        print(f"Text parsing failed: {e}")
+    
+    # Method 4: Fallback - return safe message instead of raw response
+    print("⚠️ All parsing methods failed, returning safe message")
+    return "No competitor news available"
 
 
 def format_competitor_news_from_json_string(json_string: str) -> str:
@@ -127,14 +279,27 @@ def get_and_format_competitor_news(api_url: str = "https://playground-server.dev
         api_url: URL of the competitor news API
         
     Returns:
-        Formatted text ready for Slack with hyperlinked emojis
+        Formatted text ready for Slack with hyperlinked emojis, or "No competitor news available" on error
     """
     try:
         response = requests.get(api_url, headers={'accept': 'application/json'})
         response.raise_for_status()
-        return format_competitor_news_from_raw_response(response.text)
+        
+        formatted_result = format_competitor_news_from_raw_response(response.text)
+        
+        # Check if the result contains error messages
+        if "Error parsing" in formatted_result or "Error fetching" in formatted_result:
+            print(f"⚠️ API response contained errors: {formatted_result[:100]}...")
+            return "No competitor news available"
+        
+        return formatted_result
+        
     except requests.RequestException as e:
-        return f"Error fetching competitor news: {e}"
+        print(f"❌ Error fetching competitor news: {e}")
+        return "No competitor news available"
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+        return "No competitor news available"
 
 
 # Example usage and testing
