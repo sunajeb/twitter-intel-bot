@@ -50,20 +50,13 @@ def send_competitor_news_to_slack():
             print("ℹ️ No competitor news available today or API error occurred")
             return True
         
-        # Create Slack payload with same format as Twitter monitor
+        # Create Slack payload with simplified format to avoid blocks issues
         current_date = datetime.now().strftime('%Y-%m-%d')
         formatted_date = datetime.now().strftime('%d %b %y')  # 01 Oct 25 format
+        
+        # Use simple text format instead of blocks to avoid formatting issues
         payload = {
-            "text": f"📊 Competitor Intelligence Update - {current_date}",
-            "blocks": [
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": f"*{formatted_date}*\n\n{formatted_news}"
-                    }
-                }
-            ]
+            "text": f"📊 Competitor Intelligence Update - {current_date}\n\n*{formatted_date}*\n\n{formatted_news}"
         }
         
         # Send to Slack
