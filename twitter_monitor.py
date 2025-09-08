@@ -273,8 +273,10 @@ class TwitterMonitor:
     
     def replace_tweet_ids_with_urls(self, headlines_text: str, tweets: List[Tweet]) -> str:
         """Replace TWEET_ID_X placeholders with actual clickable Slack links"""
-        if not headlines_text or not tweets:
+        if not headlines_text:
             return ""
+        if not tweets:
+            return headlines_text  # Return text as-is if no tweets (preserves non-TWEET_ID content)
         
         result = headlines_text
         
