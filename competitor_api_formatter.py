@@ -53,9 +53,15 @@ def format_competitor_news(api_response: Dict[str, Any]) -> str:
             # Remove URL from the text
             clean_text = re.sub(r'\s*\(https?://[^)]+\)', '', news_text).strip()
             
-            # Format with hyperlinked emoji
+            # Format with hyperlinked emoji - clean and validate URL
             if url:
-                formatted_item = f"• *{company}*: {clean_text} <{url}|🔗>"
+                # Clean URL of any trailing/leading whitespace and validate
+                clean_url = url.strip()
+                # Ensure URL is properly formatted
+                if not clean_url.startswith(('http://', 'https://')):
+                    clean_url = 'https://' + clean_url
+                
+                formatted_item = f"• *{company}*: {clean_text} <{clean_url}|🔗>"
             else:
                 formatted_item = f"• *{company}*: {clean_text}"
                 
