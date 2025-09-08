@@ -7,6 +7,7 @@ Converts JSON response from competitor API into clean Slack-formatted text
 import json
 import re
 import requests
+import time
 from typing import Dict, Any
 
 
@@ -281,25 +282,69 @@ def get_and_format_competitor_news(api_url: str = "https://playground-server.dev
     Returns:
         Formatted text ready for Slack with hyperlinked emojis, or "No competitor news available" on error
     """
-    try:
-        response = requests.get(api_url, headers={'accept': 'application/json'})
-        response.raise_for_status()
-        
-        formatted_result = format_competitor_news_from_raw_response(response.text)
-        
-        # Check if the result contains error messages
-        if "Error parsing" in formatted_result or "Error fetching" in formatted_result:
-            print(f"⚠️ API response contained errors: {formatted_result[:100]}...")
+    max_retries = 3
+    timeout = 30
+    backoff_factor = 2
+    
+    for attempt in range(max_retries):
+        try:
+            print(f"🔄 Attempting API call (attempt {attempt + 1}/{max_retries})")
+            
+            response = requests.get(
+                api_url, 
+                headers={'accept': 'application/json'},
+                timeout=timeout
+            )
+            response.raise_for_status()
+            
+            formatted_result = format_competitor_news_from_raw_response(response.text)
+            
+            # Check if the result contains error messages
+            if "Error parsing" in formatted_result or "Error fetching" in formatted_result:
+                print(f"⚠️ API response contained errors: {formatted_result[:100]}...")
+                return "No competitor news available"
+            
+            print("✅ Successfully fetched and formatted competitor news")
+            return formatted_result
+            
+        except requests.Timeout as e:
+            print(f"⏱️ Request timeout (attempt {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                wait_time = backoff_factor ** attempt
+                print(f"⏳ Waiting {wait_time} seconds before retry...")
+                time.sleep(wait_time)
+            continue
+            
+        except requests.HTTPError as e:
+            if e.response.status_code in [502, 503, 504]:  # Gateway errors
+                print(f"🚪 Gateway error (attempt {attempt + 1}/{max_retries}): {e.response.status_code}")
+                if attempt < max_retries - 1:
+                    wait_time = backoff_factor ** attempt
+                    print(f"⏳ Waiting {wait_time} seconds before retry...")
+                    time.sleep(wait_time)
+                continue
+            else:
+                print(f"❌ HTTP error: {e}")
+                return "No competitor news available"
+                
+        except requests.ConnectionError as e:
+            print(f"🔌 Connection error (attempt {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                wait_time = backoff_factor ** attempt
+                print(f"⏳ Waiting {wait_time} seconds before retry...")
+                time.sleep(wait_time)
+            continue
+            
+        except requests.RequestException as e:
+            print(f"❌ Request error: {e}")
             return "No competitor news available"
-        
-        return formatted_result
-        
-    except requests.RequestException as e:
-        print(f"❌ Error fetching competitor news: {e}")
-        return "No competitor news available"
-    except Exception as e:
-        print(f"❌ Unexpected error: {e}")
-        return "No competitor news available"
+            
+        except Exception as e:
+            print(f"❌ Unexpected error: {e}")
+            return "No competitor news available"
+    
+    print(f"💥 All {max_retries} attempts failed")
+    return "No competitor news available"
 
 
 # Example usage and testing

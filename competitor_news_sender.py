@@ -36,9 +36,11 @@ def send_competitor_news_to_slack():
     """
     # Get Slack webhook URL from environment or config
     webhook_url = get_slack_webhook_url()
-    if not webhook_url:
+    if not webhook_url and os.environ.get('TEST_MODE') != '1':
         print("❌ SLACK_WEBHOOK_URL not found in environment variables or config.json")
         return False
+    elif os.environ.get('TEST_MODE') == '1':
+        webhook_url = "test_webhook_url"  # Dummy URL for testing
     
     try:
         # Fetch and format competitor news
@@ -52,14 +54,19 @@ def send_competitor_news_to_slack():
         
         # Create Slack payload with simplified format to avoid blocks issues
         current_date = datetime.now().strftime('%Y-%m-%d')
-        formatted_date = datetime.now().strftime('%d %b %y')  # 01 Oct 25 format
+        formatted_date = datetime.now().strftime('%d %b')  # 08 Sep format
         
         # Use simple text format instead of blocks to avoid formatting issues
         payload = {
-            "text": f"📊 Competitor Intelligence Update - {current_date}\n\n*{formatted_date}*\n\n{formatted_news}"
+            "text": f"Linkedin Update: {formatted_date}\n\n{formatted_news}"
         }
         
-        # Send to Slack
+        # Send to Slack (skip if testing)
+        if os.environ.get('TEST_MODE') == '1':
+            print("🧪 TEST MODE: Would send to Slack:")
+            print(f"Payload: {json.dumps(payload, indent=2)}")
+            return True
+        
         print("📤 Sending competitor news to Slack...")
         response = requests.post(webhook_url, json=payload)
         
