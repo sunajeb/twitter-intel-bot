@@ -1,4 +1,4 @@
-name: Daily Competitor News Update
+name: Linkedin Tracker
 on:
   schedule:
     # Run at 7:00 AM IST daily (1:30 AM UTC)

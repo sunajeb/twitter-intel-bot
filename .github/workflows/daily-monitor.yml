@@ -1,4 +1,4 @@
-name: Daily Complete Intelligence Scan
+name: Twitter Tracker
 on:
   schedule:
     # Start at 11:00 PM IST daily (17:30 UTC) 
