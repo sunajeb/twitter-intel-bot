@@ -197,8 +197,8 @@ class TwitterMonitor:
                 continue
                 
             tweets_text = "\n\n".join([
-                f"@{tweet.username} ({tweet.created_at}):\n{tweet.text}\nURL: {tweet.url}"
-                for tweet in company_tweet_list
+                f"TWEET_ID_{i}: @{tweet.username} ({tweet.created_at}):\n{tweet.text}\nURL: {tweet.url}"
+                for i, tweet in enumerate(company_tweet_list)
             ])
             
             prompt = f"""
@@ -220,16 +220,32 @@ class TwitterMonitor:
             - Personal opinions or thoughts
             - Event announcements (unless major partnership/product launch)
 
-            For each significant tweet, generate a headline in this EXACT format:
-            Company: Headline description 🔗
+            Organize your output into these categories with appropriate emojis:
+            💰 Fund Raise
+            👥 Hiring  
+            🎯 Customer Success
+            🚀 Product
+            📈 Go-to-Market
+            📰 Other
 
-            Example output format:
-            Decagon: Raises $131M Series C funding round 🔗
-            Sierra: Launches new voice AI platform for enterprise customers 🔗
-            
-            IMPORTANT: Do NOT include the actual URL in the text. Just use the 🔗 emoji at the end.
+            For each category that has relevant information, use this format:
+            *💰 Fund Raise*
+            • Company: Headline description TWEET_ID_X
 
-            If no tweets contain significant business developments, respond with exactly "Nothing significant today".
+            *👥 Hiring*
+            • Company: Headline description TWEET_ID_X
+
+            Example output:
+            *💰 Fund Raise*
+            • Decagon: Raises $131M Series C funding round TWEET_ID_0
+
+            *🚀 Product*  
+            • Sierra: Launches new voice AI platform for enterprise customers TWEET_ID_1
+
+            IMPORTANT: 
+            - Only include categories that have actual information
+            - Use the TWEET_ID_X that corresponds to the specific tweet you analyzed for each headline
+            - If no tweets contain significant business developments, respond with exactly "Nothing significant today"
 
             Today's tweets from {company}:
             {tweets_text}
@@ -240,8 +256,8 @@ class TwitterMonitor:
                 result = response.text.strip()
                 
                 if result and result != "Nothing significant today":
-                    # Process the result to add proper Slack links
-                    formatted_headlines = self.format_headlines_with_links(result, company_tweet_list)
+                    # Process the result to replace TWEET_IDs with actual URLs
+                    formatted_headlines = self.replace_tweet_ids_with_urls(result, company_tweet_list)
                     if formatted_headlines:
                         headlines.append(formatted_headlines)
                     
@@ -255,49 +271,20 @@ class TwitterMonitor:
         # Combine all headlines
         return "\n".join(headlines)
     
-    def format_headlines_with_links(self, headlines_text: str, tweets: List[Tweet]) -> str:
-        """Format headlines to include proper Slack-style links"""
+    def replace_tweet_ids_with_urls(self, headlines_text: str, tweets: List[Tweet]) -> str:
+        """Replace TWEET_ID_X placeholders with actual clickable Slack links"""
         if not headlines_text or not tweets:
             return ""
         
-        # Create a mapping of tweet content to URLs for matching
-        tweet_urls = {}
-        for tweet in tweets:
-            # Use first 50 chars of tweet as key for matching
-            key = tweet.text[:50].lower().strip()
-            tweet_urls[key] = tweet.url
+        result = headlines_text
         
-        lines = headlines_text.strip().split('\n')
-        formatted_lines = []
+        # Replace each TWEET_ID_X with the corresponding tweet URL
+        for i, tweet in enumerate(tweets):
+            tweet_id_placeholder = f"TWEET_ID_{i}"
+            slack_link = f"<{tweet.url}|🔗>"
+            result = result.replace(tweet_id_placeholder, slack_link)
         
-        for line in lines:
-            if not line.strip():
-                continue
-                
-            # If line ends with 🔗, try to find matching tweet URL
-            if line.endswith('🔗'):
-                # Remove the emoji
-                line_without_emoji = line[:-1].strip()
-                
-                # Try to find the best matching tweet URL
-                best_match_url = None
-                
-                # Simple approach: use the first tweet URL from this company's tweets
-                # In practice, the AI should be analyzing the specific tweet that generated this headline
-                if tweets:
-                    best_match_url = tweets[0].url
-                
-                if best_match_url:
-                    # Format with link on next line for better readability
-                    formatted_lines.append(line_without_emoji)
-                    formatted_lines.append(f"<{best_match_url}|🔗>")
-                else:
-                    # Remove emoji if no URL found
-                    formatted_lines.append(line_without_emoji)
-            else:
-                formatted_lines.append(line)
-        
-        return "\n".join(formatted_lines)
+        return result
     
     def send_slack_notification(self, message: str):
         """Send notification to Slack"""
@@ -497,14 +484,16 @@ _Competitive Implications:_ Their focus on sentiment detection and enterprise cl
         # Get list of accounts being tracked
         accounts_list = self.get_tracked_accounts_list()
         
+        formatted_date = datetime.now().strftime('%d %b')  # 08 Sep format
+        
         payload = {
-            "text": f"Competitive Intelligence Alert",
+            "text": f"Twitter Update: {formatted_date}",
             "blocks": [
                 {
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": f"*{datetime.now().strftime('%Y-%m-%d')}*\n\n{message}\n\n📊 Tracking: {accounts_list}"
+                        "text": f"*Twitter Update: {formatted_date}*\n\n{message}"
                     }
                 }
             ]
