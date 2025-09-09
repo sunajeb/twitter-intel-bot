@@ -297,7 +297,7 @@ def clean_pre_formatted_linkedin_content(content: str) -> str:
             # Extract the basic content before any URLs or (LinkedIn Post) markers
             base_content = line.strip()
             
-            # Convert **Company:** format to bullet point format
+            # Convert **Company:** format to bullet point format with proper Slack formatting
             base_content = re.sub(r'^\s*\*+\s*\*\*([^*]+)\*\*:\s*', r'• *\1*: ', base_content)
             
             # Find and extract the LinkedIn URL in brackets at the end
@@ -327,8 +327,29 @@ def clean_pre_formatted_linkedin_content(content: str) -> str:
             
             cleaned_lines.append(base_content)
         else:
-            # Keep category headers and other formatting as-is
-            cleaned_lines.append(line)
+            # Handle category headers and convert to proper Slack format with emojis
+            category_line = line.strip()
+            
+            # Convert **Category:** to *📊 Category:*
+            if category_line.startswith('**') and category_line.endswith(':**'):
+                category_name = category_line[2:-3]  # Remove ** and :**
+                
+                # Map categories to emojis
+                category_emojis = {
+                    'Fund Raise': '💰',
+                    'Hiring': '👥', 
+                    'Customer Success': '🎯',
+                    'Product': '🚀',
+                    'GTM': '📈',
+                    'Other': '📰'
+                }
+                
+                emoji = category_emojis.get(category_name, '📋')
+                formatted_line = f"*{emoji} {category_name}*"
+                cleaned_lines.append(formatted_line)
+            else:
+                # Keep other lines as-is
+                cleaned_lines.append(line)
     
     result = '\n'.join(cleaned_lines)
     
