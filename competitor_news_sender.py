@@ -11,6 +11,63 @@ import requests
 from datetime import datetime
 from competitor_api_formatter import get_and_format_competitor_news
 
+def split_content_into_blocks(content: str, date: str, max_chars: int = 2800) -> list:
+    """
+    Split long LinkedIn content into multiple Slack blocks to avoid 3000 char limit
+    
+    Args:
+        content: The formatted LinkedIn news content
+        date: The formatted date for headers
+        max_chars: Maximum characters per block (default 2800 for safety buffer)
+        
+    Returns:
+        List of Slack block objects
+    """
+    blocks = []
+    
+    # Add header block
+    header_text = f"*Linkedin Update: {date}*"
+    blocks.append({
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": header_text
+        }
+    })
+    
+    # Split content by lines and group into blocks
+    lines = content.split('\n')
+    current_block_text = ""
+    
+    for line in lines:
+        # Check if adding this line would exceed the limit
+        potential_text = current_block_text + '\n' + line if current_block_text else line
+        
+        if len(potential_text) > max_chars and current_block_text:
+            # Add current block and start new one
+            blocks.append({
+                "type": "section", 
+                "text": {
+                    "type": "mrkdwn",
+                    "text": current_block_text.strip()
+                }
+            })
+            current_block_text = line
+        else:
+            current_block_text = potential_text
+    
+    # Add final block if there's remaining content
+    if current_block_text.strip():
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn", 
+                "text": current_block_text.strip()
+            }
+        })
+    
+    return blocks
+
 
 def get_slack_webhook_url():
     """
@@ -56,9 +113,12 @@ def send_competitor_news_to_slack():
         current_date = datetime.now().strftime('%Y-%m-%d')
         formatted_date = datetime.now().strftime('%d %b')  # 08 Sep format
         
-        # Use simple text format instead of blocks to avoid formatting issues
+        # Use blocks format with smart splitting to handle long content
+        blocks = split_content_into_blocks(formatted_news, formatted_date)
+        
         payload = {
-            "text": f"Linkedin Update: {formatted_date}\n\n{formatted_news}"
+            "text": f"Linkedin Update: {formatted_date}",
+            "blocks": blocks
         }
         
         # Send to Slack (skip if testing)
