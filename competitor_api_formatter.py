@@ -298,8 +298,8 @@ def clean_pre_formatted_linkedin_content(content: str) -> str:
             # This is a company line like "    *   **ElevenLabs:** ..."
             base_content = line.strip()
             
-            # Convert "    *   **Company:** content" to "• *Company*: content" 
-            base_content = re.sub(r'^\*+\s*\*\*([^*]+)\*\*:\s*', r'• *\1*: ', base_content)
+            # Convert "    *   **Company:** content" to "- *Company*: content" 
+            base_content = re.sub(r'^\*+\s*\*\*([^*]+)\*\*:\s*', r'- *\1*: ', base_content)
             
             # Find and extract the LinkedIn URL in brackets at the end
             linkedin_url_match = re.search(r'\[https://www\.linkedin\.com/[^\]]+\]', base_content)
