@@ -371,7 +371,7 @@ def clean_pre_formatted_linkedin_content(content: str) -> str:
         '- *Hiring:*': '*👥 Hiring*', 
         '- *Customer Success:*': '*🎯 Customer Success*',
         '- *Product:*': '*🚀 Product*',
-        '- *GTM:*': '*📈 GTM*',
+        '- *GTM:*': '*🎉 Events*',
         '- *Other:*': '*📰 Other*'
     }
     
