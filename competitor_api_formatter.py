@@ -365,14 +365,14 @@ def clean_pre_formatted_linkedin_content(content: str) -> str:
     # Convert asterisk bullet points to dashes for cleaner appearance
     result = re.sub(r'^\* \*', r'- *', result, flags=re.MULTILINE)
     
-    # Add emojis to section headers
+    # Add emojis to section headers (updated for dash format)
     emoji_replacements = {
-        '* *Fund Raise:*': '*💰 Fund Raise*',
-        '* *Hiring:*': '*👥 Hiring*', 
-        '* *Customer Success:*': '*🎯 Customer Success*',
-        '* *Product:*': '*🚀 Product*',
-        '* *GTM:*': '*📈 GTM*',
-        '* *Other:*': '*📰 Other*'
+        '- *Fund Raise:*': '*💰 Fund Raise*',
+        '- *Hiring:*': '*👥 Hiring*', 
+        '- *Customer Success:*': '*🎯 Customer Success*',
+        '- *Product:*': '*🚀 Product*',
+        '- *GTM:*': '*📈 GTM*',
+        '- *Other:*': '*📰 Other*'
     }
     
     for old_header, new_header in emoji_replacements.items():
