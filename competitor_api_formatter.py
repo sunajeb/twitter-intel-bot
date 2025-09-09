@@ -310,32 +310,94 @@ def clean_pre_formatted_linkedin_content(content: str) -> str:
         stripped_line = line.strip()
         
         # First check if this is a category header (like "*   **Fund Raise:**")
-        if ('**' in line and ':**' in line and 
-            not stripped_line.startswith('•') and
-            ('Fund Raise' in line or 'Hiring' in line or 'Customer Success' in line or 
-             'Product' in line or 'GTM' in line or 'Other' in line)):
-            # This is a category header
+        # Be more specific - check that the category name is exactly what's between the **
+        if ('**' in line and ':**' in line and not stripped_line.startswith('•')):
             category_line = line.strip()
             
-            # Extract category name (format is **Category:***)
+            # Extract what's between ** and check if it's a known category
             match = re.search(r'\*\*([^*:]+):\*\*', category_line)
             if match:
-                category_name = match.group(1).strip()
+                extracted_name = match.group(1).strip()
                 
-                # Map categories to emojis and handle GTM -> Events
-                category_emojis = {
-                    'Fund Raise': '💰',
-                    'Hiring': '👥', 
-                    'Customer Success': '🎯',
-                    'Product': '🚀',
-                    'GTM': '🎉',
-                    'Other': '📰'
-                }
+                # Only treat as category header if it's exactly one of our known categories
+                known_categories = ['Fund Raise', 'Hiring', 'Customer Success', 'Product', 'GTM', 'Other']
                 
-                emoji = category_emojis.get(category_name, '📋')
-                display_name = 'Events' if category_name == 'GTM' else category_name
-                formatted_line = f"*{emoji} {display_name}*"
-                cleaned_lines.append(formatted_line)
+                if extracted_name in known_categories:
+                    # This is a category header
+                    category_emojis = {
+                        'Fund Raise': '💰',
+                        'Hiring': '👥', 
+                        'Customer Success': '🎯',
+                        'Product': '🚀',
+                        'GTM': '🎉',
+                        'Other': '📰'
+                    }
+                    
+                    emoji = category_emojis.get(extracted_name, '📋')
+                    display_name = 'Events' if extracted_name == 'GTM' else extracted_name
+                    formatted_line = f"*{emoji} {display_name}*"
+                    cleaned_lines.append(formatted_line)
+                else:
+                    # Not a category header - treat as company line
+                    # Process this as a company item using the same logic below
+                    base_content = line.strip()
+                    
+                    # Extract company name first (handle format: "*   **Company:** content")
+                    # Find the **Company:** part and split on it
+                    if '**' in base_content and ':**' in base_content:
+                        # Find where **Company:** starts and ends
+                        start_idx = base_content.find('**')
+                        end_idx = base_content.find(':**') + 3  # Include the :**
+                        
+                        if start_idx >= 0 and end_idx > start_idx:
+                            # Extract company name between the ** markers
+                            company_part = base_content[start_idx:end_idx]  # **Company:**
+                            company_name = company_part[2:-3].strip()  # Remove ** and :**
+                            
+                            # Everything after :** is the content
+                            content_text = base_content[end_idx:].strip()
+                        else:
+                            # Fallback - treat as regular line
+                            company_name = None
+                            content_text = base_content
+                    else:
+                        company_name = None
+                        content_text = base_content
+                        
+                    if company_name:
+                        # Process the company content (URL extraction, etc.)
+                        # Find and extract the LinkedIn URL in the format (LinkedIn Post)[https://url]
+                        linkedin_url_match = re.search(r'\(LinkedIn Post\)\[https://www\.linkedin\.com/[^\]]+\]', content_text)
+                        if linkedin_url_match:
+                            # Extract just the URL part
+                            url_part = re.search(r'\[https://www\.linkedin\.com/[^\]]+\]', linkedin_url_match.group(0))
+                            linkedin_url = url_part.group(0)[1:-1] if url_part else None
+                            # Remove the entire (LinkedIn Post)[url] part
+                            content_text = content_text.replace(linkedin_url_match.group(0), '')
+                        else:
+                            # Fallback: look for just [https://url] format
+                            url_match = re.search(r'\[https://www\.linkedin\.com/[^\]]+\]', content_text)
+                            linkedin_url = url_match.group(0)[1:-1] if url_match else None
+                            if url_match:
+                                content_text = content_text.replace(url_match.group(0), '')
+                            # Remove (LinkedIn Post) markers separately
+                            content_text = re.sub(r'\s*\(LinkedIn Post\)', '', content_text)
+                        
+                        # Clean content
+                        content_text = re.sub(r'\[https?://[^\]]+\]', '', content_text)
+                        content_text = re.sub(r'https?://\S+', '', content_text)
+                        content_text = re.sub(r'\s+', ' ', content_text).strip()
+                        content_text = re.sub(r'[:\s]+$', '', content_text)
+                        
+                        # Format with clickable company name if we found a LinkedIn URL
+                        if linkedin_url:
+                            formatted_content = f"- *<{linkedin_url}|{company_name}>*: {content_text}"
+                        else:
+                            formatted_content = f"- *{company_name}*: {content_text}"
+                        
+                        cleaned_lines.append(formatted_content)
+                    else:
+                        cleaned_lines.append(line)
             else:
                 cleaned_lines.append(line)
         
