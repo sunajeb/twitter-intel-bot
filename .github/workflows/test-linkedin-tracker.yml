@@ -1,0 +1,33 @@
+name: Test LinkedIn Tracker
+
+on:
+  workflow_dispatch: # Allow manual triggering only
+
+jobs:
+  test-linkedin-tracker:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Test LinkedIn Tracker
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.TEST_SLACK_WEBHOOK_URL }}
+      run: |
+        echo "🧪 Testing LinkedIn Tracker with test Slack bot..."
+        python competitor_news_sender.py
+        
+    - name: Log completion
+      run: |
+        echo "✅ Test LinkedIn tracker completed at $(date)"
