@@ -362,6 +362,19 @@ def clean_pre_formatted_linkedin_content(content: str) -> str:
     # Final pass: convert any remaining **text** to *text* for Slack compatibility
     result = re.sub(r'\*\*([^*]+)\*\*', r'*\1*', result)
     
+    # Add emojis to section headers
+    emoji_replacements = {
+        '* *Fund Raise:*': '*💰 Fund Raise*',
+        '* *Hiring:*': '*👥 Hiring*', 
+        '* *Customer Success:*': '*🎯 Customer Success*',
+        '* *Product:*': '*🚀 Product*',
+        '* *GTM:*': '*📈 GTM*',
+        '* *Other:*': '*📰 Other*'
+    }
+    
+    for old_header, new_header in emoji_replacements.items():
+        result = result.replace(old_header, new_header)
+    
     # If result is too empty, return fallback
     if len(result.strip()) < 50:
         return "No competitor news available"
