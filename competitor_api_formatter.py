@@ -359,6 +359,9 @@ def clean_pre_formatted_linkedin_content(content: str) -> str:
     
     result = '\n'.join(cleaned_lines)
     
+    # Final pass: convert any remaining **text** to *text* for Slack compatibility
+    result = re.sub(r'\*\*([^*]+)\*\*', r'*\1*', result)
+    
     # If result is too empty, return fallback
     if len(result.strip()) < 50:
         return "No competitor news available"
