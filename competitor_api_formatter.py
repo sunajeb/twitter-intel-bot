@@ -65,7 +65,7 @@ def format_competitor_news(api_response: Dict[str, Any]) -> str:
                 if not clean_url.startswith(('http://', 'https://')):
                     clean_url = 'https://' + clean_url
                 
-                formatted_item = f"• *{company}*: {clean_text} <{clean_url}|🔗>"
+                formatted_item = f"• *<{clean_url}|{company}>*: {clean_text}"
             else:
                 formatted_item = f"• *{company}*: {clean_text}"
                 
@@ -174,7 +174,7 @@ def format_raw_text_as_slack(content: str) -> str:
             section_name = line[4:].strip()
             formatted_lines.append(f"*{section_name}*")
         elif line.startswith('*   **') and ':**' in line:
-            # Convert list items to Slack format
+            # Convert list items to Slack format with clickable company names
             try:
                 company_part = line[6:]  # Remove "*   **"
                 if ':**' in company_part:
@@ -182,11 +182,27 @@ def format_raw_text_as_slack(content: str) -> str:
                     company = company.strip()
                     content = content.strip()
                     
+                    # Extract LinkedIn URL from content
+                    url_match = re.search(r'\[https://www\.linkedin\.com/[^\]]+\]', content)
+                    url = url_match.group(0)[1:-1] if url_match else None
+                    
+                    # Clean up content - remove URL brackets and LinkedIn Post markers
+                    if url_match:
+                        content = content.replace(url_match.group(0), '')
+                    content = re.sub(r'\s*\(LinkedIn Post\)', '', content)
+                    content = re.sub(r'\[https?://[^\]]+\]', '', content)
+                    content = re.sub(r'https?://\S+', '', content)
+                    content = re.sub(r'\s+', ' ', content).strip()
+                    
                     # Clean up content
                     if content.endswith('.'):
                         content = content[:-1]
                     
-                    formatted_lines.append(f"• *{company}*: {content}")
+                    # Format with clickable company name if URL exists
+                    if url:
+                        formatted_lines.append(f"• *<{url}|{company}>*: {content}")
+                    else:
+                        formatted_lines.append(f"• *{company}*: {content}")
             except:
                 # If parsing fails, just add the line as-is
                 formatted_lines.append(f"• {line}")
@@ -322,9 +338,13 @@ def clean_pre_formatted_linkedin_content(content: str) -> str:
             base_content = re.sub(r'\s+', ' ', base_content).strip()
             base_content = re.sub(r'[:\s]+$', '', base_content)
             
-            # Add clickable link if we found a LinkedIn URL
+            # Replace the company name with clickable version if we found a LinkedIn URL
             if linkedin_url:
-                base_content += f' <{linkedin_url}|🔗>'
+                # Extract company name from the formatted content and make it clickable
+                company_match = re.search(r'- \*([^*]+)\*:', base_content)
+                if company_match:
+                    company_name = company_match.group(1)
+                    base_content = re.sub(r'- \*[^*]+\*:', f'- *<{linkedin_url}|{company_name}>*:', base_content)
             
             cleaned_lines.append(base_content)
         else:
