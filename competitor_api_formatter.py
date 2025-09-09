@@ -290,10 +290,15 @@ def clean_pre_formatted_linkedin_content(content: str) -> str:
         if 'breakdown' in line.lower() or 'categorized as' in line.lower():
             continue
             
-        # Process bullet points with company news
-        if line.strip().startswith('•') and ':' in line:
+        # Process bullet points with company news (handle both • and * bullets, and **Company:** format)
+        stripped_line = line.strip()
+        if ((stripped_line.startswith('•') or stripped_line.startswith('*')) and 
+            (':' in stripped_line or '**' in stripped_line)):
             # Extract the basic content before any URLs or (LinkedIn Post) markers
-            base_content = line
+            base_content = line.strip()
+            
+            # Convert **Company:** format to bullet point format
+            base_content = re.sub(r'^\s*\*+\s*\*\*([^*]+)\*\*:\s*', r'• *\1*: ', base_content)
             
             # Find and extract the LinkedIn URL in brackets at the end
             linkedin_url_match = re.search(r'\[https://www\.linkedin\.com/[^\]]+\]', base_content)
