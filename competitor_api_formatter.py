@@ -363,7 +363,7 @@ def clean_pre_formatted_linkedin_content(content: str) -> str:
     result = re.sub(r'\*\*([^*]+)\*\*', r'*\1*', result)
     
     # Convert asterisk bullet points to dashes for cleaner appearance
-    result = re.sub(r'^\* \*([^*]+)\*:', r'- *\1*:', result, flags=re.MULTILINE)
+    result = re.sub(r'^\* \*', r'- *', result, flags=re.MULTILINE)
     
     # Add emojis to section headers
     emoji_replacements = {
