@@ -332,16 +332,13 @@ def clean_pre_formatted_linkedin_content(content: str) -> str:
             category_line = line.strip()
             
             # Convert **Category:** to *📊 Category:* (handle both direct and indirect formats)
-            if (category_line.startswith('**') and category_line.endswith(':**')) or \
-               (category_line.startswith('*') and '**' in category_line and ':**' in category_line):
+            if ('**' in category_line and ':**' in category_line and 
+                not category_line.startswith('•')):  # This is a category header, not a company item
                 
-                # Extract category name from different formats
-                if category_line.startswith('**'):
-                    category_name = category_line[2:-3]  # Remove ** and :**
-                else:
-                    # Handle "* **Category:**" format
-                    match = re.search(r'\*\*([^*]+)\*\*:', category_line)
-                    category_name = match.group(1) if match else category_line
+                # Extract category name from different formats: "* **Category:**" or "**Category:**"
+                match = re.search(r'\*\*([^*]+)\*\*:', category_line)
+                if match:
+                    category_name = match.group(1).strip()
                 
                 # Map categories to emojis
                 category_emojis = {
