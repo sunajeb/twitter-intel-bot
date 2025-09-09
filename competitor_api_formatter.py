@@ -249,13 +249,14 @@ def format_competitor_news_from_raw_response(raw_response: str) -> str:
     except Exception as e:
         print(f"Markdown parsing failed: {e}")
     
-    # Method 3: Try simple text parsing (fallback)
+    # Method 3: Handle pre-formatted text from API (clean it up)
     try:
-        # Extract content from markdown blocks if present
         content = extract_json_from_markdown(raw_response)
         
-        # If it looks like structured text, try to format it
         if content and len(content) > 50:
+            cleaned_content = clean_pre_formatted_linkedin_content(content)
+            if cleaned_content != "No competitor news available":
+                return cleaned_content
             return format_raw_text_as_slack(content)
     except Exception as e:
         print(f"Text parsing failed: {e}")
@@ -263,6 +264,74 @@ def format_competitor_news_from_raw_response(raw_response: str) -> str:
     # Method 4: Fallback - return safe message instead of raw response
     print("⚠️ All parsing methods failed, returning safe message")
     return "No competitor news available"
+
+def clean_pre_formatted_linkedin_content(content: str) -> str:
+    """
+    Clean up pre-formatted LinkedIn content from API to make it Slack-ready
+    
+    Args:
+        content: Pre-formatted content with visible URLs and LinkedIn Post markers
+        
+    Returns:
+        Clean Slack-formatted content with clickable links
+    """
+    if not content:
+        return "No competitor news available"
+    
+    lines = content.split('\n')
+    cleaned_lines = []
+    
+    for line in lines:
+        if not line.strip():
+            cleaned_lines.append(line)
+            continue
+            
+        # Skip any explanatory header text
+        if 'breakdown' in line.lower() or 'categorized as' in line.lower():
+            continue
+            
+        # Process bullet points with company news
+        if line.strip().startswith('•') and ':' in line:
+            # Extract the basic content before any URLs or (LinkedIn Post) markers
+            base_content = line
+            
+            # Find and extract the LinkedIn URL in brackets at the end
+            linkedin_url_match = re.search(r'\[https://www\.linkedin\.com/[^\]]+\]', base_content)
+            linkedin_url = linkedin_url_match.group(0)[1:-1] if linkedin_url_match else None
+            
+            # Remove the LinkedIn URL in brackets
+            if linkedin_url_match:
+                base_content = base_content.replace(linkedin_url_match.group(0), '')
+            
+            # Remove (LinkedIn Post) markers
+            base_content = re.sub(r'\s*\(LinkedIn Post\)', '', base_content)
+            
+            # Remove any standalone URLs like [https://lnkd.in/xyz]
+            base_content = re.sub(r'\[https?://[^\]]+\]', '', base_content)
+            
+            # Remove any remaining visible URLs
+            base_content = re.sub(r'https?://\S+', '', base_content)
+            
+            # Clean up extra spaces and trailing punctuation
+            base_content = re.sub(r'\s+', ' ', base_content).strip()
+            base_content = re.sub(r'[:\s]+$', '', base_content)
+            
+            # Add clickable link if we found a LinkedIn URL
+            if linkedin_url:
+                base_content += f' <{linkedin_url}|🔗>'
+            
+            cleaned_lines.append(base_content)
+        else:
+            # Keep category headers and other formatting as-is
+            cleaned_lines.append(line)
+    
+    result = '\n'.join(cleaned_lines)
+    
+    # If result is too empty, return fallback
+    if len(result.strip()) < 50:
+        return "No competitor news available"
+        
+    return result
 
 
 def format_competitor_news_from_json_string(json_string: str) -> str:
