@@ -292,13 +292,14 @@ def clean_pre_formatted_linkedin_content(content: str) -> str:
             
         # Process bullet points with company news (handle both • and * bullets, and **Company:** format)
         stripped_line = line.strip()
-        if ((stripped_line.startswith('•') or stripped_line.startswith('*')) and 
-            (':' in stripped_line or '**' in stripped_line)):
-            # Extract the basic content before any URLs or (LinkedIn Post) markers
+        
+        # Handle company lines that have indented * **Company:** format  
+        if ('**' in line and ':**' in line and not stripped_line.startswith('**')):
+            # This is a company line like "    *   **ElevenLabs:** ..."
             base_content = line.strip()
             
-            # Convert **Company:** format to bullet point format with proper Slack formatting
-            base_content = re.sub(r'^\s*\*+\s*\*\*([^*]+)\*\*:\s*', r'• *\1*: ', base_content)
+            # Convert "    *   **Company:** content" to "• *Company*: content" 
+            base_content = re.sub(r'^\*+\s*\*\*([^*]+)\*\*:\s*', r'• *\1*: ', base_content)
             
             # Find and extract the LinkedIn URL in brackets at the end
             linkedin_url_match = re.search(r'\[https://www\.linkedin\.com/[^\]]+\]', base_content)
@@ -330,9 +331,17 @@ def clean_pre_formatted_linkedin_content(content: str) -> str:
             # Handle category headers and convert to proper Slack format with emojis
             category_line = line.strip()
             
-            # Convert **Category:** to *📊 Category:*
-            if category_line.startswith('**') and category_line.endswith(':**'):
-                category_name = category_line[2:-3]  # Remove ** and :**
+            # Convert **Category:** to *📊 Category:* (handle both direct and indirect formats)
+            if (category_line.startswith('**') and category_line.endswith(':**')) or \
+               (category_line.startswith('*') and '**' in category_line and ':**' in category_line):
+                
+                # Extract category name from different formats
+                if category_line.startswith('**'):
+                    category_name = category_line[2:-3]  # Remove ** and :**
+                else:
+                    # Handle "* **Category:**" format
+                    match = re.search(r'\*\*([^*]+)\*\*:', category_line)
+                    category_name = match.group(1) if match else category_line
                 
                 # Map categories to emojis
                 category_emojis = {
