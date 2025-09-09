@@ -362,6 +362,9 @@ def clean_pre_formatted_linkedin_content(content: str) -> str:
     # Final pass: convert any remaining **text** to *text* for Slack compatibility
     result = re.sub(r'\*\*([^*]+)\*\*', r'*\1*', result)
     
+    # Convert asterisk bullet points to dashes for cleaner appearance
+    result = re.sub(r'^\* \*([^*]+)\*:', r'- *\1*:', result, flags=re.MULTILINE)
+    
     # Add emojis to section headers
     emoji_replacements = {
         '* *Fund Raise:*': '*💰 Fund Raise*',
