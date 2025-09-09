@@ -309,8 +309,38 @@ def clean_pre_formatted_linkedin_content(content: str) -> str:
         # Process bullet points with company news (handle both • and * bullets, and **Company:** format)
         stripped_line = line.strip()
         
+        # First check if this is a category header (like "*   **Fund Raise:**")
+        if ('**' in line and ':**' in line and 
+            not stripped_line.startswith('•') and
+            ('Fund Raise' in line or 'Hiring' in line or 'Customer Success' in line or 
+             'Product' in line or 'GTM' in line or 'Other' in line)):
+            # This is a category header
+            category_line = line.strip()
+            
+            # Extract category name (format is **Category:***)
+            match = re.search(r'\*\*([^*:]+):\*\*', category_line)
+            if match:
+                category_name = match.group(1).strip()
+                
+                # Map categories to emojis and handle GTM -> Events
+                category_emojis = {
+                    'Fund Raise': '💰',
+                    'Hiring': '👥', 
+                    'Customer Success': '🎯',
+                    'Product': '🚀',
+                    'GTM': '🎉',
+                    'Other': '📰'
+                }
+                
+                emoji = category_emojis.get(category_name, '📋')
+                display_name = 'Events' if category_name == 'GTM' else category_name
+                formatted_line = f"*{emoji} {display_name}*"
+                cleaned_lines.append(formatted_line)
+            else:
+                cleaned_lines.append(line)
+        
         # Handle company lines that have indented * **Company:** format  
-        if ('**' in line and ':**' in line and not stripped_line.startswith('**')):
+        elif ('**' in line and ':**' in line and not stripped_line.startswith('**')):
             # This is a company line like "    *   **ElevenLabs:** ..."
             base_content = line.strip()
             
@@ -373,34 +403,8 @@ def clean_pre_formatted_linkedin_content(content: str) -> str:
             
             cleaned_lines.append(base_content)
         else:
-            # Handle category headers and convert to proper Slack format with emojis
-            category_line = line.strip()
-            
-            # Convert **Category:** to *📊 Category:* (handle both direct and indirect formats)
-            if ('**' in category_line and ':**' in category_line and 
-                not category_line.startswith('•')):  # This is a category header, not a company item
-                
-                # Extract category name from different formats: "* **Category:**" or "**Category:**"
-                match = re.search(r'\*\*([^*]+)\*\*:', category_line)
-                if match:
-                    category_name = match.group(1).strip()
-                
-                # Map categories to emojis
-                category_emojis = {
-                    'Fund Raise': '💰',
-                    'Hiring': '👥', 
-                    'Customer Success': '🎯',
-                    'Product': '🚀',
-                    'GTM': '📈',
-                    'Other': '📰'
-                }
-                
-                emoji = category_emojis.get(category_name, '📋')
-                formatted_line = f"*{emoji} {category_name}*"
-                cleaned_lines.append(formatted_line)
-            else:
-                # Keep other lines as-is
-                cleaned_lines.append(line)
+            # Keep other lines as-is (empty lines, explanatory text, etc.)
+            cleaned_lines.append(line)
     
     result = '\n'.join(cleaned_lines)
     
