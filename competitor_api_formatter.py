@@ -314,37 +314,62 @@ def clean_pre_formatted_linkedin_content(content: str) -> str:
             # This is a company line like "    *   **ElevenLabs:** ..."
             base_content = line.strip()
             
-            # Convert "    *   **Company:** content" to "- *Company*: content" 
-            base_content = re.sub(r'^\*+\s*\*\*([^*]+)\*\*:\s*', r'- *\1*: ', base_content)
-            
-            # Find and extract the LinkedIn URL in brackets at the end
-            linkedin_url_match = re.search(r'\[https://www\.linkedin\.com/[^\]]+\]', base_content)
-            linkedin_url = linkedin_url_match.group(0)[1:-1] if linkedin_url_match else None
-            
-            # Remove the LinkedIn URL in brackets
-            if linkedin_url_match:
-                base_content = base_content.replace(linkedin_url_match.group(0), '')
-            
-            # Remove (LinkedIn Post) markers
-            base_content = re.sub(r'\s*\(LinkedIn Post\)', '', base_content)
-            
-            # Remove any standalone URLs like [https://lnkd.in/xyz]
-            base_content = re.sub(r'\[https?://[^\]]+\]', '', base_content)
-            
-            # Remove any remaining visible URLs
-            base_content = re.sub(r'https?://\S+', '', base_content)
-            
-            # Clean up extra spaces and trailing punctuation
-            base_content = re.sub(r'\s+', ' ', base_content).strip()
-            base_content = re.sub(r'[:\s]+$', '', base_content)
-            
-            # Replace the company name with clickable version if we found a LinkedIn URL
-            if linkedin_url:
-                # Extract company name from the formatted content and make it clickable
-                company_match = re.search(r'- \*([^*]+)\*:', base_content)
-                if company_match:
-                    company_name = company_match.group(1)
-                    base_content = re.sub(r'- \*[^*]+\*:', f'- *<{linkedin_url}|{company_name}>*:', base_content)
+            # Extract company name first (handle format: "*   **Company:** content")
+            # Find the **Company:** part and split on it
+            if '**' in base_content and ':**' in base_content:
+                # Find where **Company:** starts and ends
+                start_idx = base_content.find('**')
+                end_idx = base_content.find(':**') + 3  # Include the :**
+                
+                if start_idx >= 0 and end_idx > start_idx:
+                    # Extract company name between the ** markers
+                    company_part = base_content[start_idx:end_idx]  # **Company:**
+                    company_name = company_part[2:-3].strip()  # Remove ** and :**
+                    
+                    # Everything after :** is the content
+                    content_text = base_content[end_idx:].strip()
+                else:
+                    # Fallback - treat as regular line
+                    company_name = None
+                    content_text = base_content
+            else:
+                company_name = None
+                content_text = base_content
+                
+            if company_name:
+                
+                # Find and extract the LinkedIn URL in the format (LinkedIn Post)[https://url]
+                linkedin_url_match = re.search(r'\(LinkedIn Post\)\[https://www\.linkedin\.com/[^\]]+\]', content_text)
+                if linkedin_url_match:
+                    # Extract just the URL part
+                    url_part = re.search(r'\[https://www\.linkedin\.com/[^\]]+\]', linkedin_url_match.group(0))
+                    linkedin_url = url_part.group(0)[1:-1] if url_part else None
+                    # Remove the entire (LinkedIn Post)[url] part
+                    content_text = content_text.replace(linkedin_url_match.group(0), '')
+                else:
+                    # Fallback: look for just [https://url] format
+                    url_match = re.search(r'\[https://www\.linkedin\.com/[^\]]+\]', content_text)
+                    linkedin_url = url_match.group(0)[1:-1] if url_match else None
+                    if url_match:
+                        content_text = content_text.replace(url_match.group(0), '')
+                    # Remove (LinkedIn Post) markers separately
+                    content_text = re.sub(r'\s*\(LinkedIn Post\)', '', content_text)
+                
+                # Remove any standalone URLs like [https://lnkd.in/xyz]
+                content_text = re.sub(r'\[https?://[^\]]+\]', '', content_text)
+                
+                # Remove any remaining visible URLs
+                content_text = re.sub(r'https?://\S+', '', content_text)
+                
+                # Clean up extra spaces and trailing punctuation
+                content_text = re.sub(r'\s+', ' ', content_text).strip()
+                content_text = re.sub(r'[:\s]+$', '', content_text)
+                
+                # Format with clickable company name if we found a LinkedIn URL
+                if linkedin_url:
+                    base_content = f"- *<{linkedin_url}|{company_name}>*: {content_text}"
+                else:
+                    base_content = f"- *{company_name}*: {content_text}"
             
             cleaned_lines.append(base_content)
         else:
