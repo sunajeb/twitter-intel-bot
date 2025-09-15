@@ -235,19 +235,30 @@ class TwitterMonitor:
         return "\n".join(headlines)
     
     def replace_tweet_ids_with_urls(self, headlines_text: str, tweets: List[Tweet]) -> str:
-        """Replace TWEET_ID_X placeholders with actual clickable Slack links"""
+        """Replace TWEET_ID_X placeholders with hyperlinked company names like LinkedIn format"""
         if not headlines_text:
             return ""
         if not tweets:
             return headlines_text  # Return text as-is if no tweets (preserves non-TWEET_ID content)
         
+        import re
         result = headlines_text
         
-        # Replace each TWEET_ID_X with the corresponding tweet URL
+        # Replace each TWEET_ID_X with hyperlinked company name
         for i, tweet in enumerate(tweets):
             tweet_id_placeholder = f"TWEET_ID_{i}"
-            slack_link = f"<{tweet.url}|🔗>"
-            result = result.replace(tweet_id_placeholder, slack_link)
+            
+            # Find pattern: • Company: Description TWEET_ID_X
+            pattern = r'• ([^:]+): ([^T]*?)' + re.escape(tweet_id_placeholder)
+            
+            def replace_match(match):
+                company_name = match.group(1).strip()
+                description = match.group(2).strip()
+                # Create hyperlinked company name in Slack format
+                hyperlinked_company = f"<{tweet.url}|{company_name}>"
+                return f"• {hyperlinked_company}: {description}"
+            
+            result = re.sub(pattern, replace_match, result)
         
         return result
     
