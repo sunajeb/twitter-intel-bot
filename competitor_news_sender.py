@@ -8,8 +8,56 @@ Integrates with existing Twitter Intel Bot Slack channel
 import os
 import json
 import requests
+import time
 from datetime import datetime
 from competitor_api_formatter import get_and_format_competitor_news
+
+def wait_for_api_health(api_url: str, max_wait_minutes: int = 20) -> bool:
+    """
+    Wait for API to become healthy before making requests
+    
+    Args:
+        api_url: URL to check
+        max_wait_minutes: Maximum time to wait in minutes
+        
+    Returns:
+        True if API becomes available, False if timeout
+    """
+    max_wait_seconds = max_wait_minutes * 60
+    start_time = time.time()
+    attempt = 0
+    
+    print(f"🔍 Checking API health at {api_url} (will wait up to {max_wait_minutes} minutes)")
+    
+    while time.time() - start_time < max_wait_seconds:
+        attempt += 1
+        try:
+            response = requests.get(api_url, timeout=10)
+            if response.status_code == 200:
+                elapsed_minutes = (time.time() - start_time) / 60
+                print(f"✅ API is healthy after {attempt} attempts ({elapsed_minutes:.1f} minutes)")
+                return True
+        except:
+            pass
+        
+        elapsed = int(time.time() - start_time)
+        remaining = max_wait_seconds - elapsed
+        
+        if remaining > 0:
+            # Wait longer intervals: 30s, 60s, 120s, then 2 minutes
+            if attempt <= 3:
+                wait_time = min(30 * attempt, remaining)
+            else:
+                wait_time = min(120, remaining)
+            
+            elapsed_minutes = elapsed / 60
+            print(f"⏳ API not ready (attempt {attempt}). Waiting {wait_time}s... (elapsed: {elapsed_minutes:.1f}min)")
+            time.sleep(wait_time)
+    
+    elapsed_minutes = (time.time() - start_time) / 60
+    print(f"❌ API did not become healthy after {elapsed_minutes:.1f} minutes")
+    return False
+
 
 def split_content_into_blocks(content: str, date: str, max_chars: int = 2800) -> list:
     """
@@ -100,6 +148,12 @@ def send_competitor_news_to_slack():
         webhook_url = "test_webhook_url"  # Dummy URL for testing
     
     try:
+        # First check API health and wait if needed
+        api_url = "https://playground-server.dev.nurixlabs.tech/get_competitor_news"
+        if not wait_for_api_health(api_url, max_wait_minutes=20):
+            print("⚠️ API is not healthy after waiting 20 minutes")
+            return True  # Return success to avoid workflow failure
+        
         # Fetch and format competitor news
         print("🔄 Fetching competitor news from API...")
         formatted_news = get_and_format_competitor_news()
