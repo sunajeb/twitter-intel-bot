@@ -1,0 +1,61 @@
+name: Test Twitter Tracker
+
+on:
+  workflow_dispatch: # Allow manual triggering only
+
+jobs:
+  test-twitter-tracker:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Create test config
+      env:
+        TWITTERAPI_IO_KEY: ${{ secrets.TWITTERAPI_IO_KEY }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        TEST_SLACK_WEBHOOK_URL: ${{ secrets.TEST_SLACK_WEBHOOK_URL }}
+      run: |
+        echo "🔧 Creating test configuration..."
+        cat > config.json << EOF
+        {
+          "twitterapi_io_key": "$TWITTERAPI_IO_KEY",
+          "gemini_api_key": "$GEMINI_API_KEY", 
+          "slack_webhook_url": "$TEST_SLACK_WEBHOOK_URL"
+        }
+        EOF
+        
+    - name: Test Twitter Tracker
+      run: |
+        echo "🧪 Testing Twitter Tracker with TwitterAPI.io..."
+        echo "📊 Using priority accounts for testing..."
+        
+        # Use priority accounts for faster testing
+        if [ -f accounts_priority.txt ]; then
+          echo "📋 Using accounts_priority.txt for test run"
+          cp accounts_priority.txt accounts.txt
+        fi
+        
+        # Run the Twitter monitor
+        python twitter_monitor.py
+        
+    - name: Test TwitterAPI.io Integration
+      run: |
+        echo "🔍 Testing TwitterAPI.io integration separately..."
+        python test_twitterapi_io.py
+        
+    - name: Log completion
+      run: |
+        echo "✅ Test Twitter tracker completed at $(date)"
+        echo "📊 Check your test Slack channel for notifications"
