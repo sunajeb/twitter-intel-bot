@@ -13,9 +13,9 @@ import time
 class TwitterAPIClient:
     def __init__(self, api_key: str):
         self.api_key = api_key
-        self.base_url = "https://api.twitterapi.io/v2"
+        self.base_url = "https://api.twitterapi.io"
         self.headers = {
-            'Authorization': f'Bearer {api_key}',
+            'X-API-Key': api_key,
             'Content-Type': 'application/json'
         }
     
@@ -32,19 +32,13 @@ class TwitterAPIClient:
             List of tweet dictionaries compatible with existing Tweet class
         """
         try:
-            # Calculate time filter
-            utc_now = datetime.now(timezone.utc)
-            start_time = (utc_now - timedelta(hours=hours_back)).strftime('%Y-%m-%dT%H:%M:%SZ')
-            
-            print(f"🕐 Fetching tweets from @{username} since: {start_time} (UTC) [Last {hours_back} hours]")
+            print(f"🕐 Fetching tweets from @{username} [Last {hours_back} hours]")
             
             # TwitterAPI.io endpoint for user tweets
-            url = f"{self.base_url}/users/by/username/{username}/tweets"
+            url = f"{self.base_url}/twitter/user/last_tweets"
             params = {
-                'max_results': min(max_results, 100),  # API limit is usually 100
-                'start_time': start_time,
-                'exclude': 'retweets',
-                'tweet.fields': 'created_at,public_metrics,in_reply_to_user_id,referenced_tweets'
+                'userName': username,
+                'count': min(max_results, 20)  # TwitterAPI.io returns up to 20 tweets per page
             }
             
             response = requests.get(url, headers=self.headers, params=params, timeout=30)
@@ -60,39 +54,59 @@ class TwitterAPIClient:
                 return []
             
             data = response.json()
-            tweets_data = data.get('data', [])
+            
+            if data.get('status') != 'success':
+                print(f"❌ API returned error for @{username}: {data.get('message', 'Unknown error')}")
+                return []
+            
+            tweets_data = data.get('tweets', [])
             
             if not tweets_data:
-                print(f"ℹ️ No tweets found for @{username} in the last {hours_back} hours")
+                print(f"ℹ️ No tweets found for @{username}")
                 return []
+            
+            # Filter tweets by time (TwitterAPI.io doesn't have time filtering in API)
+            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours_back)
             
             tweets = []
             for tweet_data in tweets_data:
-                # Check if this is a reply
-                is_reply = tweet_data.get('in_reply_to_user_id') is not None
-                reply_to_tweet_id = None
+                # Parse created_at time
+                try:
+                    tweet_time_str = tweet_data.get('createdAt', '')
+                    # TwitterAPI.io uses ISO format, try parsing it
+                    tweet_time = datetime.fromisoformat(tweet_time_str.replace('Z', '+00:00'))
+                    
+                    # Skip tweets older than our cutoff
+                    if tweet_time < cutoff_time:
+                        continue
+                        
+                except (ValueError, TypeError):
+                    # If we can't parse the time, include the tweet
+                    pass
                 
-                # Get the original tweet ID if this is a reply
-                if 'referenced_tweets' in tweet_data:
-                    for ref in tweet_data['referenced_tweets']:
-                        if ref['type'] == 'replied_to':
-                            reply_to_tweet_id = ref['id']
-                            break
+                # Check if this is a reply
+                is_reply = tweet_data.get('isReply', False)
+                reply_to_tweet_id = tweet_data.get('inReplyToId')
                 
                 # Format tweet data to match existing Tweet class structure
                 tweet = {
-                    'id': tweet_data['id'],
-                    'text': tweet_data['text'],
-                    'created_at': tweet_data['created_at'],
+                    'id': tweet_data.get('id', ''),
+                    'text': tweet_data.get('text', ''),
+                    'created_at': tweet_data.get('createdAt', ''),
                     'username': username,
-                    'url': f"https://twitter.com/{username}/status/{tweet_data['id']}",
+                    'url': tweet_data.get('url', f"https://twitter.com/{username}/status/{tweet_data.get('id', '')}"),
                     'is_reply': is_reply,
                     'reply_to_tweet_id': reply_to_tweet_id,
-                    'metrics': tweet_data.get('public_metrics', {})
+                    'metrics': {
+                        'retweet_count': tweet_data.get('retweetCount', 0),
+                        'like_count': tweet_data.get('likeCount', 0),
+                        'reply_count': tweet_data.get('replyCount', 0),
+                        'quote_count': tweet_data.get('quoteCount', 0)
+                    }
                 }
                 tweets.append(tweet)
             
-            print(f"✅ Fetched {len(tweets)} tweets for @{username}")
+            print(f"✅ Fetched {len(tweets)} tweets for @{username} (last {hours_back}h)")
             return tweets
             
         except Exception as e:
@@ -128,18 +142,26 @@ class TwitterAPIClient:
     def test_connection(self) -> bool:
         """Test if the API key and connection are working"""
         try:
-            # Test with a simple request
-            url = f"{self.base_url}/users/by/username/twitter"
-            response = requests.get(url, headers=self.headers, timeout=10)
+            # Test with a simple request to get tweets by IDs (using known tweet IDs)
+            url = f"{self.base_url}/twitter/tweets"
+            params = {
+                'tweet_ids': '1846987139428634858'  # Use a known tweet ID for testing
+            }
+            response = requests.get(url, headers=self.headers, params=params, timeout=10)
             
             if response.status_code == 200:
-                print("✅ TwitterAPI.io connection successful!")
-                return True
+                data = response.json()
+                if data.get('status') == 'success':
+                    print("✅ TwitterAPI.io connection successful!")
+                    return True
+                else:
+                    print(f"❌ API error: {data.get('message', 'Unknown error')}")
+                    return False
             elif response.status_code == 401:
                 print("❌ Authentication failed - check your API key")
                 return False
             else:
-                print(f"⚠️ Connection test returned: {response.status_code}")
+                print(f"⚠️ Connection test returned: {response.status_code} - {response.text}")
                 return False
                 
         except Exception as e:
