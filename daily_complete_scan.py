@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 Daily complete intelligence scan - scans all accounts once and sends one complete summary
-Starts at 11 PM IST, processes all accounts with rate limit delays, sends final compiled result
-36 accounts × 15min delays = 9 hours total (completes by 8 AM IST)
+Starts at 8 AM IST, processes all accounts with TwitterAPI.io rate limit delays, sends final compiled result
+23 accounts × 6sec delays = ~2 minutes total (completes quickly with TwitterAPI.io)
 """
 
 import time
@@ -51,10 +51,10 @@ def daily_complete_scan():
     for i, username in enumerate(all_accounts):
         print(f"\n--- Processing @{username} ({i+1}/{len(all_accounts)}) ---")
         
-        # Add delay between accounts (except first) to respect 15-min rate limits
+        # Add delay between accounts (except first) to respect TwitterAPI.io rate limits
         if i > 0:
-            delay = 15 * 60  # 15 minutes = 900 seconds (when rate limits reset)
-            print(f"⏱️ Waiting {delay//60} minutes between accounts to respect API rate limits...")
+            delay = 6  # 6 seconds for TwitterAPI.io free tier (1 req per 5 seconds + buffer)
+            print(f"⏱️ Waiting {delay} seconds between accounts for TwitterAPI.io rate limits...")
             time.sleep(delay)
         
         try:

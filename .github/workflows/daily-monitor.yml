@@ -1,9 +1,9 @@
 name: Twitter Tracker
 on:
   schedule:
-    # Start at 11:00 PM IST daily (17:30 UTC) 
-    # 36 accounts × 15min delays = 540 minutes = 9 hours total (completes by 8:00 AM IST)
-    - cron: '30 17 * * *'
+    # Start at 8:00 AM IST daily (02:30 UTC) 
+    # 23 accounts × 6sec delays = ~2 minutes total with TwitterAPI.io
+    - cron: '30 2 * * *'
   workflow_dispatch: # Allow manual triggering
 
 jobs:
@@ -26,19 +26,19 @@ jobs:
         
     - name: Run Twitter monitoring
       env:
-        TWITTER_BEARER_TOKEN: ${{ secrets.TWITTER_BEARER_TOKEN }}
+        TWITTERAPI_IO_KEY: ${{ secrets.TWITTERAPI_IO_KEY }}
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
       run: |
         cat > config.json << EOF
         {
-          "twitter_bearer_token": "${{ secrets.TWITTER_BEARER_TOKEN }}",
-          "gemini_api_key": "${{ secrets.GEMINI_API_KEY }}",
-          "slack_webhook_url": "${{ secrets.SLACK_WEBHOOK_URL }}"
+          "twitterapi_io_key": "$TWITTERAPI_IO_KEY",
+          "gemini_api_key": "$GEMINI_API_KEY",
+          "slack_webhook_url": "$SLACK_WEBHOOK_URL"
         }
         EOF
         
-        # Run complete daily scan
+        # Run complete daily scan with TwitterAPI.io
         python daily_complete_scan.py
         
     - name: Commit updated state files
