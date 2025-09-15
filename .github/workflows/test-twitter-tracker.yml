@@ -47,8 +47,8 @@ jobs:
           cp accounts_priority.txt accounts.txt
         fi
         
-        # Run the Twitter monitor
-        python twitter_monitor.py
+        # Run the complete scan (same as main workflow but to test Slack)
+        python daily_complete_scan.py
         
     - name: Test TwitterAPI.io Integration
       run: |

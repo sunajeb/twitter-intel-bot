@@ -73,16 +73,17 @@ class TwitterAPIClient:
                 # Parse created_at time
                 try:
                     tweet_time_str = tweet_data.get('createdAt', '')
-                    # TwitterAPI.io uses ISO format, try parsing it
-                    tweet_time = datetime.fromisoformat(tweet_time_str.replace('Z', '+00:00'))
+                    # TwitterAPI.io uses Twitter's format: "Wed Sep 10 08:40:21 +0000 2025"
+                    tweet_time = datetime.strptime(tweet_time_str, '%a %b %d %H:%M:%S %z %Y')
                     
                     # Skip tweets older than our cutoff
                     if tweet_time < cutoff_time:
                         continue
                         
-                except (ValueError, TypeError):
-                    # If we can't parse the time, include the tweet
-                    pass
+                except (ValueError, TypeError) as e:
+                    # If we can't parse the time, skip the tweet to be safe
+                    print(f"⚠️ Could not parse tweet time '{tweet_time_str}': {e}")
+                    continue
                 
                 # Check if this is a reply
                 is_reply = tweet_data.get('isReply', False)
