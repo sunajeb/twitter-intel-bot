@@ -48,69 +48,32 @@ class TwitterMonitor:
         self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
     
     def fetch_twitter_data(self, username: str) -> List[Tweet]:
-        """Fetch recent tweets from a Twitter username using Twitter API v2 with caching"""
-        from user_cache import UserIDCache
+        """Fetch recent tweets from a Twitter username using TwitterAPI.io"""
+        from twitter_api_io_client import TwitterAPIClient
         
-        bearer_token = self.config.get('twitter_bearer_token')
-        if not bearer_token:
-            print("Twitter Bearer Token not found in config")
+        api_key = self.config.get('twitterapi_io_key')
+        if not api_key:
+            print("TwitterAPI.io API key not found in config - add 'twitterapi_io_key' to config.json")
             return []
         
-        # Calculate last 24 hours for filtering
-        from datetime import timezone, timedelta
-        utc_now = datetime.now(timezone.utc)
-        last_24h_start = (utc_now - timedelta(hours=24)).strftime('%Y-%m-%dT%H:%M:%SZ')
-        print(f"🕐 Fetching tweets from {username} since: {last_24h_start} (UTC) [Last 24 hours]")
+        client = TwitterAPIClient(api_key)
         
-        # Get user ID using cache (saves API calls!)
-        cache = UserIDCache()
-        user_id = cache.get_user_id(username, bearer_token)
+        # Fetch tweets from last 24 hours using TwitterAPI.io
+        tweets_data = client.get_user_tweets(username, hours_back=24, max_results=10)
         
-        if not user_id:
-            print(f"Could not get user ID for {username}")
+        if not tweets_data:
             return []
         
-        # Fetch recent tweets from last 24 hours
-        tweets_url = f"https://api.twitter.com/2/users/{user_id}/tweets"
-        headers = {"Authorization": f"Bearer {bearer_token}"}
-        params = {
-            'max_results': 10,  # Reduced from 20 to minimize data usage
-            'start_time': last_24h_start,
-            'tweet.fields': 'created_at,in_reply_to_user_id,referenced_tweets',  # Removed public_metrics to reduce payload
-            'exclude': 'retweets'  # Include replies but exclude retweets
-        }
-        
-        response = requests.get(tweets_url, headers=headers, params=params)
-        if response.status_code == 429:
-            print(f"⚠️ Rate limit hit for @{username} tweet fetch - skipping this account for now")
-            return []
-        elif response.status_code != 200:
-            print(f"Error fetching tweets for {username}: {response.text}")
-            return []
-        
-        tweets_data = response.json().get('data', [])
         tweets = []
-        
         for tweet_data in tweets_data:
-            # Check if this is a reply
-            is_reply = 'in_reply_to_user_id' in tweet_data
-            reply_to_tweet_id = None
-            
-            # Get the original tweet ID if this is a reply
-            if 'referenced_tweets' in tweet_data:
-                for ref in tweet_data['referenced_tweets']:
-                    if ref['type'] == 'replied_to':
-                        reply_to_tweet_id = ref['id']
-                        break
-            
             tweet = Tweet(
                 id=tweet_data['id'],
                 text=tweet_data['text'],
                 created_at=tweet_data['created_at'],
-                username=username,
-                url=f"https://twitter.com/{username}/status/{tweet_data['id']}",
-                is_reply=is_reply,
-                reply_to_tweet_id=reply_to_tweet_id
+                username=tweet_data['username'],
+                url=tweet_data['url'],
+                is_reply=tweet_data.get('is_reply', False),
+                reply_to_tweet_id=tweet_data.get('reply_to_tweet_id')
             )
             tweets.append(tweet)
         
