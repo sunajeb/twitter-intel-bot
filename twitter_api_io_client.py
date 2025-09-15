@@ -59,7 +59,7 @@ class TwitterAPIClient:
                 print(f"❌ API returned error for @{username}: {data.get('message', 'Unknown error')}")
                 return []
             
-            tweets_data = data.get('tweets', [])
+            tweets_data = data.get('data', {}).get('tweets', [])
             
             if not tweets_data:
                 print(f"ℹ️ No tweets found for @{username}")
@@ -132,10 +132,10 @@ class TwitterAPIClient:
             tweets = self.get_user_tweets(username, hours_back)
             all_tweets[username] = tweets
             
-            # Add delay between requests to be respectful to the API
+            # Add delay between requests (TwitterAPI.io free tier: 1 request per 5 seconds)
             if i < len(usernames) - 1:  # Don't wait after the last request
-                print("⏳ Waiting 2 seconds before next request...")
-                time.sleep(2)
+                print("⏳ Waiting 6 seconds before next request (free tier limit)...")
+                time.sleep(6)
         
         return all_tweets
     
