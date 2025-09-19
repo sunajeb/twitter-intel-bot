@@ -150,7 +150,8 @@ class LinkedInMonitor:
                 {{
                     "company": "Company Name",
                     "description": "Brief description of the funding announcement",
-                    "url": "post URL"
+                    "url": "post URL",
+                    "critical": true  // Set to true for funding, acquisition, or revenue announcements
                 }}
             ],
             "hiring": [
@@ -185,7 +186,8 @@ class LinkedInMonitor:
                 {{
                     "company": "Company Name",
                     "description": "Brief description of other significant updates",
-                    "url": "post URL"
+                    "url": "post URL",
+                    "critical": true  // Set to true if this is about acquisition or major revenue milestone
                 }}
             ]
         }}
@@ -197,6 +199,12 @@ class LinkedInMonitor:
         - Use the exact URL from the post
         - Return ONLY valid JSON, no markdown formatting or extra text
         - If no significant updates, return an empty JSON object: {{}}
+        - CRITICAL FLAG: Set "critical": true for posts about:
+          * Funding rounds or investment announcements
+          * Company acquisitions (buying or being acquired)
+          * Major revenue milestones or financial achievements
+          * IPO or exit announcements
+        - Only include the "critical" field when it's true; omit it otherwise
         
         Posts to analyze:
         {posts_text}
@@ -249,8 +257,15 @@ class LinkedInMonitor:
     
     def format_for_slack(self, analysis: Dict, date: str) -> str:
         """Format the analysis for Slack with proper emoji headers and hyperlinks"""
+        # Convert date format from YYYY-MM-DD to '16 Sep' format
+        try:
+            date_obj = datetime.strptime(date, '%Y-%m-%d')
+            formatted_date = date_obj.strftime('%-d %b')  # %-d removes leading zero
+        except:
+            formatted_date = date  # fallback to original if parsing fails
+            
         if not analysis or all(len(items) == 0 for items in analysis.values()):
-            return f"*LinkedIn Update: {date}*\n\nNo significant updates today."
+            return f"*LinkedIn Update: {formatted_date}*\n\nNo significant updates today."
         
         # Emoji mapping for categories
         emoji_map = {
@@ -273,7 +288,7 @@ class LinkedInMonitor:
         }
         
         # Build the message
-        message = f"*LinkedIn Update: {date}*\n"
+        message = f"*LinkedIn Update: {formatted_date}*\n"
         
         for category, items in analysis.items():
             if items and len(items) > 0:
@@ -288,12 +303,16 @@ class LinkedInMonitor:
                     company_name = item.get('company', 'Unknown')
                     description = item.get('description', '')
                     url = item.get('url', '')
+                    is_critical = item.get('critical', False)
+                    
+                    # Add siren emoji for critical updates (funding, acquisition, revenue)
+                    prefix = "🚨 " if is_critical else ""
                     
                     # Format with hyperlinked company name
                     if url:
-                        message += f"• <{url}|{company_name}>: {description}\n"
+                        message += f"• {prefix}<{url}|{company_name}>: {description}\n"
                     else:
-                        message += f"• {company_name}: {description}\n"
+                        message += f"• {prefix}{company_name}: {description}\n"
         
         return message
     
