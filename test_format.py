@@ -30,7 +30,8 @@ def replace_tweet_ids_with_urls(headlines_text: str, tweets) -> str:
         tweet_id_placeholder = f"TWEET_ID_{i}"
         
         # Find pattern: • Company: Description TWEET_ID_X
-        pattern = r'• ([^:]+): ([^T]*?)' + re.escape(tweet_id_placeholder)
+        # Use a more specific pattern that looks for the exact TWEET_ID_X at the end
+        pattern = r'• ([^:]+): (.*?)' + re.escape(tweet_id_placeholder) + r'(?:\s|$)'
         
         def replace_match(match):
             company_name = match.group(1).strip()

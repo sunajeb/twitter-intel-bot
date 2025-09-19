@@ -21,12 +21,19 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         
+    - name: Create config.json for test
+      run: |
+        echo '{
+          "gemini_api_key": "${{ secrets.GEMINI_API_KEY }}",
+          "slack_webhook_url": "${{ secrets.TEST_SLACK_WEBHOOK_URL }}"
+        }' > config.json
+        
     - name: Test LinkedIn Tracker
       env:
         SLACK_WEBHOOK_URL: ${{ secrets.TEST_SLACK_WEBHOOK_URL }}
       run: |
         echo "🧪 Testing LinkedIn Tracker with test Slack bot..."
-        python competitor_news_sender.py
+        python linkedin_monitor.py
         
     - name: Log completion
       run: |

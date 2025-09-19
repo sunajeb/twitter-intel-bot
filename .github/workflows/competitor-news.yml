@@ -1,13 +1,13 @@
-name: Linkedin Tracker
+name: LinkedIn Daily Monitor
 on:
   schedule:
-    # Run at 7:00 AM IST daily (1:30 AM UTC)
-    # IST is UTC+5:30, so 7:00 AM IST = 1:30 AM UTC
-    - cron: '30 1 * * *'
+    # Run at 8:00 AM IST daily (2:30 AM UTC)
+    # IST is UTC+5:30, so 8:00 AM IST = 2:30 AM UTC
+    - cron: '30 2 * * *'
   workflow_dispatch: # Allow manual triggering
 
 jobs:
-  competitor-news:
+  linkedin-monitor:
     runs-on: ubuntu-latest
     
     steps:
@@ -24,14 +24,21 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         
-    - name: Send Competitor News to Slack
+    - name: Create config.json
+      run: |
+        echo '{
+          "gemini_api_key": "${{ secrets.GEMINI_API_KEY }}",
+          "slack_webhook_url": "${{ secrets.SLACK_WEBHOOK_URL }}"
+        }' > config.json
+        
+    - name: Run LinkedIn Monitor
       env:
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
       run: |
-        echo "📊 Starting competitor news update..."
-        python competitor_news_sender.py
+        echo "🔗 Starting LinkedIn daily monitor..."
+        python linkedin_monitor.py
         
     - name: Log completion
       run: |
-        echo "✅ Competitor news workflow completed at $(date)"
+        echo "✅ LinkedIn monitor workflow completed at $(date)"
 

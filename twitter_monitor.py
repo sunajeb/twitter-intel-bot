@@ -207,7 +207,9 @@ class TwitterMonitor:
 
             IMPORTANT: 
             - Only include categories that have actual information
-            - Use the TWEET_ID_X that corresponds to the specific tweet you analyzed for each headline
+            - ALWAYS end each headline with the TWEET_ID_X that corresponds to the specific tweet
+            - Every single headline MUST have a TWEET_ID_X at the end - this is required for linking
+            - Use the exact TWEET_ID_X that corresponds to the specific tweet you analyzed
             - If no tweets contain significant business developments, respond with exactly "Nothing significant today"
 
             Today's tweets from {company}:
@@ -249,7 +251,8 @@ class TwitterMonitor:
             tweet_id_placeholder = f"TWEET_ID_{i}"
             
             # Find pattern: • Company: Description TWEET_ID_X
-            pattern = r'• ([^:]+): ([^T]*?)' + re.escape(tweet_id_placeholder)
+            # Use a more specific pattern that looks for the exact TWEET_ID_X at the end
+            pattern = r'• ([^:]+): (.*?)' + re.escape(tweet_id_placeholder) + r'(?=\s*$|\s*\n|\s*\*)'
             
             def replace_match(match):
                 company_name = match.group(1).strip()
@@ -259,6 +262,29 @@ class TwitterMonitor:
                 return f"• {hyperlinked_company}: {description}"
             
             result = re.sub(pattern, replace_match, result)
+        
+        # Fallback: If there are still entries without hyperlinks, add them based on company name
+        # This handles cases where the AI didn't include TWEET_ID_X
+        if tweets:
+            # Create a mapping of company names to their tweet URLs
+            company_url_map = {}
+            for tweet in tweets:
+                company = self.account_to_company.get(tweet.username, tweet.username)
+                if company not in company_url_map:
+                    company_url_map[company] = tweet.url
+            
+            # For each company, find and hyperlink entries that don't already have links
+            for company, url in company_url_map.items():
+                # Pattern to find lines that start with the company name but don't have hyperlinks
+                fallback_pattern = r'^• ' + re.escape(company) + r': (.*)$'
+                
+                def fallback_replace(match):
+                    description = match.group(1).strip()
+                    # Use the company's tweet URL
+                    hyperlinked_company = f"<{url}|{company}>"
+                    return f"• {hyperlinked_company}: {description}"
+                
+                result = re.sub(fallback_pattern, fallback_replace, result, flags=re.MULTILINE)
         
         return result
     
