@@ -6,6 +6,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Twitter & LinkedIn Intelligence Bot - A competitive intelligence monitoring system that tracks Twitter and LinkedIn accounts for important updates, analyzes them with AI, and sends notifications via Slack.
 
+## Security Note
+
+**IMPORTANT**: All API keys are stored as environment variables and are NOT pushed to GitHub. The following environment variables are used:
+- `SCRAPIN_API` - ScrapIn API key for LinkedIn data
+- `TWITTERAPI_IO_KEY` - TwitterAPI.io key for Twitter data
+- `GEMINI_API_KEY` - Google Gemini API key for AI analysis
+- `SLACK_WEBHOOK_URL` - Slack webhook for notifications
+- `TWITTER_BEARER_TOKEN` - Twitter API bearer token
+
+Never hardcode API keys in the source code. All keys should be loaded from environment variables or config.json (which should never be committed).
+
 ## Key Commands
 
 ### Development Setup
@@ -102,9 +113,13 @@ Formatting → Slack Notification → Daily Summary Accumulation
 
 ### API Integrations
 1. **TwitterAPI.io** - Third-party Twitter API (6-second delay for free tier)
+   - Uses `TWITTERAPI_IO_KEY` environment variable
 2. **ScrapIn API** - LinkedIn post fetching with company activity data
+   - Uses `SCRAPIN_API` environment variable
 3. **Google Gemini AI** - Analyzes posts for competitive intelligence (gemini-2.0-flash-exp)
+   - Uses `GEMINI_API_KEY` environment variable
 4. **Slack Webhooks** - Sends formatted notifications with hyperlinked company names
+   - Uses `SLACK_WEBHOOK_URL` environment variable
 
 ### Error Handling Strategy
 - Try-catch blocks at all integration points
