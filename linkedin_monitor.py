@@ -12,6 +12,7 @@ import time
 import random
 import google.generativeai as genai
 from typing import List, Dict, Optional
+import re
 
 class LinkedInMonitor:
     def __init__(self):
@@ -213,8 +214,34 @@ class LinkedInMonitor:
             if result_text.endswith('```'):
                 result_text = result_text[:-3]
             
-            # Parse JSON
-            return json.loads(result_text.strip())
+            # Additional cleanup: remove any remaining markdown or extra formatting
+            result_text = result_text.strip()
+            
+            # Remove any trailing commas before closing braces/brackets (common JSON error)
+            result_text = re.sub(r',\s*}', '}', result_text)
+            result_text = re.sub(r',\s*]', ']', result_text)
+            
+            # Log the cleaned response for debugging
+            print(f"\n=== GEMINI RESPONSE (cleaned) ===\n{result_text[:500]}...\n" if len(result_text) > 500 else f"\n=== GEMINI RESPONSE (cleaned) ===\n{result_text}\n")
+            
+            # Parse JSON with better error handling
+            try:
+                return json.loads(result_text)
+            except json.JSONDecodeError as je:
+                print(f"JSON parse error: {je}")
+                print(f"Error at position {je.pos} in response")
+                # Try to extract valid JSON portion if possible
+                try:
+                    # Find the first { and last } to extract JSON object
+                    start = result_text.find('{')
+                    end = result_text.rfind('}')
+                    if start >= 0 and end > start:
+                        json_portion = result_text[start:end+1]
+                        return json.loads(json_portion)
+                except:
+                    pass
+                # If all else fails, return empty dict
+                return {}
         
         except Exception as e:
             print(f"Error analyzing posts with Gemini: {e}")
@@ -295,9 +322,15 @@ class LinkedInMonitor:
     def run_daily_analysis(self):
         """Run the daily LinkedIn analysis"""
         # Get yesterday's date (or today for testing)
-        today = datetime.now()
-        target_date = today - timedelta(days=1)
-        date_str = target_date.strftime('%Y-%m-%d')
+        # Allow override via command line argument or environment variable
+        import sys
+        if len(sys.argv) > 1:
+            date_str = sys.argv[1]
+            print(f"Using provided date: {date_str}")
+        else:
+            today = datetime.now()
+            target_date = today - timedelta(days=1)
+            date_str = target_date.strftime('%Y-%m-%d')
         
         print(f"Running LinkedIn analysis for {date_str}")
         
@@ -319,6 +352,18 @@ class LinkedInMonitor:
                 time.sleep(2)
         
         print(f"Fetched {len(all_posts)} posts total")
+        
+        # Log all fetched posts for debugging
+        if all_posts:
+            print("\n=== FETCHED POSTS ===\n")
+            for i, post in enumerate(all_posts, 1):
+                print(f"Post {i} - {post['company_name']}:")
+                print(f"  Date: {post['date']}")
+                print(f"  URL: {post['url']}")
+                print(f"  Text preview: {post['text'][:200]}..." if len(post['text']) > 200 else f"  Text: {post['text']}")
+                print()
+        else:
+            print("No posts found for the specified date range.")
         
         # Analyze with Gemini
         analysis = self.analyze_posts_with_gemini(all_posts, date_str)
