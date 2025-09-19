@@ -3,11 +3,14 @@
 Test with an account that tweets frequently to verify filtering works
 """
 
+import os
 from twitter_api_io_client import TwitterAPIClient
 
 def test_working_account():
     """Test with OpenAI which tweets frequently"""
-    api_key = "new1_3888e5e515a14b58860d269717014769"
+    api_key = os.getenv('TWITTERAPI_IO_KEY')
+    if not api_key:
+        raise ValueError("TWITTERAPI_IO_KEY environment variable not set")
     
     print("🧪 Testing with @OpenAI (active account)...")
     

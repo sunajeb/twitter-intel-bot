@@ -31,7 +31,9 @@ class LinkedInMonitor:
         self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
         
         # ScrapIn API configuration
-        self.scrapin_api_key = "sk_ccdfbe96fcb3815a7801ae40d0c3449e2817e28b"
+        self.scrapin_api_key = self.config.get('scrapin_api_key') or os.getenv('SCRAPIN_API')
+        if not self.scrapin_api_key:
+            raise ValueError("ScrapIn API key not found in config or environment")
         self.scrapin_url = "https://api.scrapin.io/v1/enrichment/companies/activities/posts"
     
     def load_config(self) -> dict:

@@ -3,11 +3,14 @@
 Test TwitterAPI.io API key provided by user
 """
 
+import os
 from twitter_api_io_client import TwitterAPIClient
 
 def test_provided_api_key():
     """Test the provided API key"""
-    api_key = "new1_3888e5e515a14b58860d269717014769"
+    api_key = os.getenv('TWITTERAPI_IO_KEY')
+    if not api_key:
+        raise ValueError("TWITTERAPI_IO_KEY environment variable not set")
     
     print("🧪 Testing provided TwitterAPI.io API key...")
     print(f"API Key: {api_key}")

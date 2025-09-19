@@ -3,13 +3,16 @@
 Debug what's happening with yellowdotai specifically
 """
 
+import os
 import requests
 import json
 from datetime import datetime, timezone, timedelta
 
 def debug_yellowdotai():
     """Debug yellowdotai API response and time filtering"""
-    api_key = "new1_3888e5e515a14b58860d269717014769"
+    api_key = os.getenv('TWITTERAPI_IO_KEY')
+    if not api_key:
+        raise ValueError("TWITTERAPI_IO_KEY environment variable not set")
     base_url = "https://api.twitterapi.io"
     
     headers = {

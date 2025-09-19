@@ -3,11 +3,14 @@
 Test TwitterAPI.io with a single account to verify it works
 """
 
+import os
 from twitter_api_io_client import TwitterAPIClient
 
 def test_single_account():
     """Test with just one account to avoid rate limits"""
-    api_key = "new1_3888e5e515a14b58860d269717014769"
+    api_key = os.getenv('TWITTERAPI_IO_KEY')
+    if not api_key:
+        raise ValueError("TWITTERAPI_IO_KEY environment variable not set")
     
     print("🧪 Testing TwitterAPI.io with single account...")
     
