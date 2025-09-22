@@ -31,6 +31,7 @@ jobs:
     - name: Test LinkedIn Tracker
       env:
         SLACK_WEBHOOK_URL: ${{ secrets.TEST_SLACK_WEBHOOK_URL }}
+        SCRAPIN_API: ${{ secrets.SCRAPIN_API }}
       run: |
         echo "🧪 Testing LinkedIn Tracker with test Slack bot..."
         python linkedin_monitor.py

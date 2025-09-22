@@ -34,6 +34,7 @@ jobs:
     - name: Run LinkedIn Monitor
       env:
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        SCRAPIN_API: ${{ secrets.SCRAPIN_API }}
       run: |
         echo "🔗 Starting LinkedIn daily monitor..."
         python linkedin_monitor.py
