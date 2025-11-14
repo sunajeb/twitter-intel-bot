@@ -313,7 +313,10 @@ class LinkedInMonitor:
 
         message = f"*:date: {formatted_date}: Linkedin*\n"
         
-        for category, items in analysis.items():
+        # Stable category ordering like Twitter
+        category_order = ['fund_raise','partnerships','product','customer_success','hiring','other']
+        for category in category_order:
+            items = analysis.get(category) or []
             if items and len(items) > 0:
                 emoji = emoji_map.get(category, '📋')
                 name = category_names.get(category, category.replace('_', ' ').title())
@@ -350,9 +353,9 @@ class LinkedInMonitor:
                         is_siren = (category == 'fund_raise') or ('acquisition' in hl or 'acquires' in hl or 'acquired' in hl or 'merger' in hl or 'acquire' in hl)
                         prefix = "🚨 " if is_siren else ""
                         if url:
-                            message += f"> • {prefix}{headline}. <{url}|.>\n"
+                            message += f"> • {prefix}{headline} <{url}|↗>\n"
                         else:
-                            message += f"> • {prefix}{headline}.\n"
+                            message += f"> • {prefix}{headline}\n"
 
         return message
     
