@@ -272,19 +272,24 @@ class TwitterMonitor:
                         continue
                     items = dedupe_items(items)
 
-                    # Company header (quoted block)
-                    # Link company name to first item's URL if available
+                    # Company header (quoted block) — no link on company name
                     first_url = url_map.get(items[0].get('tweet_id', ''), company_list[0].url if company_list else '')
-                    company_header = f"> <{first_url}|{company}>"
+                    company_header = f"> {company}"
 
                     lines = [company_header]
                     for it in items:
                         url = url_map.get(it.get('tweet_id', ''), first_url)
-                        headline = it.get('headline', '').strip().rstrip('.')
+                        headline = (it.get('headline', '') or '').strip().rstrip('.')
                         if not headline:
                             continue
-                        prefix = "🚨 " if it.get('critical') else ""
-                        lines.append(f"> • {prefix}<{url}|{headline}>")
+                        # Siren only for funding or acquisitions
+                        hl = headline.lower()
+                        is_siren = (key == 'fund_raise') or ('acquisition' in hl or 'acquires' in hl or 'acquired' in hl or 'merger' in hl or 'acquire' in hl)
+                        prefix = "🚨 " if is_siren else ""
+                        if url:
+                            lines.append(f"> • {prefix}{headline}. <{url}|.>")
+                        else:
+                            lines.append(f"> • {prefix}{headline}.")
 
                     if len(lines) > 1:
                         # Add category title once before first company block of that category
