@@ -274,7 +274,7 @@ class TwitterMonitor:
 
                     # Company header (quoted block) — no link on company name
                     first_url = url_map.get(items[0].get('tweet_id', ''), company_list[0].url if company_list else '')
-                    company_header = f"> {company}"
+                    company_header = f"> `{company}`"
 
                     lines = [company_header]
                     for it in items:
@@ -287,9 +287,9 @@ class TwitterMonitor:
                         is_siren = (key == 'fund_raise') or ('acquisition' in hl or 'acquires' in hl or 'acquired' in hl or 'merger' in hl or 'acquire' in hl)
                         prefix = "🚨 " if is_siren else ""
                         if url:
-                            lines.append(f"> • {prefix}{headline} <{url}|»>")
+                            lines.append(f"> <{url}|»»> {prefix}{headline}")
                         else:
-                            lines.append(f"> • {prefix}{headline}")
+                            lines.append(f"> »» {prefix}{headline}")
 
                     if len(lines) > 1:
                         category_blocks[key].append("\n".join(lines))

@@ -342,8 +342,8 @@ class LinkedInMonitor:
 
                     # Company header quoted
                     first_url = (unique[0].get('url') if unique and unique[0].get('url') else '')
-                    # Company header — no link on company name
-                    message += f"> {comp}\n"
+                    # Company header — inline code chip for strong contrast
+                    message += f"> `{comp}`\n"
 
                     for it in unique:
                         url = it.get('url','')
@@ -353,9 +353,9 @@ class LinkedInMonitor:
                         is_siren = (category == 'fund_raise') or ('acquisition' in hl or 'acquires' in hl or 'acquired' in hl or 'merger' in hl or 'acquire' in hl)
                         prefix = "🚨 " if is_siren else ""
                         if url:
-                            message += f"> • {prefix}{headline} <{url}|»>\n"
+                            message += f"> <{url}|»»> {prefix}{headline}\n"
                         else:
-                            message += f"> • {prefix}{headline}\n"
+                            message += f"> »» {prefix}{headline}\n"
 
         return message
     
