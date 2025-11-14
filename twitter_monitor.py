@@ -180,7 +180,8 @@ class TwitterMonitor:
             ('other', '📰 Other')
         ]
 
-        all_sections = []
+        # Collect company blocks per category so headers appear once
+        category_blocks = {k: [] for k, _ in category_map}
 
         for company, company_list in company_tweets.items():
             if not company_list:
@@ -264,8 +265,7 @@ class TwitterMonitor:
                 for i, t in enumerate(company_list):
                     url_map[f"TWEET_ID_{i}"] = t.url
 
-                # Dedupe and format per category
-                sections = []
+                # Dedupe and format per category -> accumulate blocks
                 for key, title in category_map:
                     items = parsed.get(key) or []
                     if not items:
@@ -287,27 +287,30 @@ class TwitterMonitor:
                         is_siren = (key == 'fund_raise') or ('acquisition' in hl or 'acquires' in hl or 'acquired' in hl or 'merger' in hl or 'acquire' in hl)
                         prefix = "🚨 " if is_siren else ""
                         if url:
-                            lines.append(f"> • {prefix}{headline}. <{url}|.>")
+                            lines.append(f"> • {prefix}{headline} <{url}|↗>")
                         else:
-                            lines.append(f"> • {prefix}{headline}.")
+                            lines.append(f"> • {prefix}{headline}")
 
                     if len(lines) > 1:
-                        # Add category title once before first company block of that category
-                        if not any(s.startswith(f"*{title}*") for s in sections):
-                            sections.append(f"*{title}*")
-                        sections.append("\n".join(lines))
-
-                if sections:
-                    all_sections.append("\n".join(sections))
+                        category_blocks[key].append("\n".join(lines))
 
             except Exception as e:
                 print(f"Error analyzing tweets for {company}: {e}")
                 continue
 
-        if not all_sections:
+        # Build final message with one header per category
+        parts = []
+        for key, title in category_map:
+            blocks = category_blocks.get(key) or []
+            if not blocks:
+                continue
+            parts.append(f"*{title}*")
+            parts.extend(blocks)
+
+        if not parts:
             return "Nothing important today"
 
-        return "\n\n".join(all_sections)
+        return "\n".join(parts)
     
     def replace_tweet_ids_with_urls(self, headlines_text: str, tweets: List[Tweet]) -> str:
         """Replace TWEET_ID_X placeholders with hyperlinked company names like LinkedIn format"""
