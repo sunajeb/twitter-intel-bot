@@ -63,8 +63,12 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             monitor.config = config
             monitor.setup_gemini()
             
-            # Load accounts (you may want to store this in environment or database)
-            accounts = os.environ.get('TWITTER_ACCOUNTS', 'DecagonAI,SierraPlatform').split(',')
+            # Load accounts from master file
+            try:
+                with open('twitter_accounts.txt', 'r') as f:
+                    accounts = [line.strip().split(':', 1)[0] for line in f if line.strip()]
+            except FileNotFoundError:
+                accounts = ['DecagonAI', 'SierraPlatform']
             
             # Fetch and analyze recent tweets
             all_tweets = []
@@ -148,7 +152,7 @@ def flask_handler():
             monitor.setup_gemini()
             
             # Load accounts
-            accounts_file = 'accounts.txt'
+            accounts_file = 'twitter_accounts.txt'
             if os.path.exists(accounts_file):
                 accounts = monitor.load_accounts(accounts_file)
             else:

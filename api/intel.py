@@ -91,9 +91,9 @@ def handler(request, response):
         monitor.config = config
         monitor.setup_gemini()
 
-        # Load accounts from accounts.txt file
+        # Load accounts from twitter_accounts.txt file
         try:
-            accounts_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'accounts.txt')
+            accounts_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'twitter_accounts.txt')
             with open(accounts_file, 'r') as f:
                 accounts = [line.strip() for line in f.readlines() if line.strip()]
         except FileNotFoundError:
@@ -182,9 +182,9 @@ def intel_handler(request):
             monitor.config = config
             monitor.setup_gemini()
 
-            # Load accounts from accounts.txt file
+            # Load accounts from twitter_accounts.txt file
             try:
-                accounts_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'accounts.txt')
+                accounts_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'twitter_accounts.txt')
                 with open(accounts_file, 'r') as f:
                     accounts = [line.strip() for line in f.readlines() if line.strip()]
             except FileNotFoundError:

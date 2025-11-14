@@ -11,7 +11,7 @@ from typing import List, Tuple
 
 
 class AccountRotator:
-    def __init__(self, accounts_file: str = "accounts.txt", state_file: str = "rotation_state.json", api_tier: str = "free"):
+    def __init__(self, accounts_file: str = "twitter_accounts.txt", state_file: str = "rotation_state.json", api_tier: str = "free"):
         self.accounts_file = accounts_file
         self.state_file = state_file
         
@@ -28,7 +28,7 @@ class AccountRotator:
         self.api_tier = api_tier
         
     def load_all_accounts(self) -> List[Tuple[str, str]]:
-        """Load all accounts from accounts.txt"""
+        """Load all accounts from twitter_accounts.txt"""
         accounts = []
         try:
             with open(self.accounts_file, 'r') as f:

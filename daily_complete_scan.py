@@ -21,7 +21,7 @@ def daily_complete_scan():
     account_to_company = {}
     
     try:
-        with open("accounts.txt", 'r') as f:
+        with open("twitter_accounts.txt", 'r') as f:
             for line in f.readlines():
                 line = line.strip()
                 if not line:
@@ -36,7 +36,7 @@ def daily_complete_scan():
                     all_accounts.append(account)
                     account_to_company[account] = account
     except FileNotFoundError:
-        print("❌ accounts.txt not found")
+        print("❌ twitter_accounts.txt not found")
         return
     
     monitor.account_to_company = account_to_company

@@ -1,7 +1,0 @@
-# Priority Twitter accounts for Free tier monitoring
-# Only the most important competitors - Free tier allows ~4 accounts per hour
-DecagonAI:Decagon
-SierraPlatform:Sierra
-elevenlabsio:ElevenLabs
-replicant_ai:Replicant
-observeAI:Observe.AI

@@ -95,9 +95,9 @@ export SLACK_VERIFICATION_TOKEN="your_token_here"
 
 ## 3. Adding More Twitter Accounts
 
-Simply edit the `accounts.txt` file:
+Simply edit the `twitter_accounts.txt` file:
 ```bash
-nano accounts.txt
+nano twitter_accounts.txt
 
 # Add one account per line (without @):
 DecagonAI
@@ -144,7 +144,7 @@ python3 twitter_monitor.py
 ├── twitter_monitor.py      # Main monitoring script
 ├── slack_bot.py           # Slack slash command handler
 ├── config.json            # API keys and settings
-├── accounts.txt           # Twitter accounts to monitor
+├── twitter_accounts.txt   # Twitter accounts to monitor
 ├── requirements.txt       # Python dependencies
 ├── run_daily.sh          # Daily execution script
 ├── twitter_monitor_env/  # Python virtual environment

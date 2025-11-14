@@ -14,7 +14,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: '3.11'
         
     - name: Install dependencies
       run: |
@@ -39,14 +39,7 @@ jobs:
     - name: Test Twitter Tracker
       run: |
         echo "🧪 Testing Twitter Tracker with TwitterAPI.io..."
-        echo "📊 Using priority accounts for testing..."
-        
-        # Use priority accounts for faster testing
-        if [ -f accounts_priority.txt ]; then
-          echo "📋 Using accounts_priority.txt for test run"
-          cp accounts_priority.txt accounts.txt
-        fi
-        
+        echo "📋 Using master list: twitter_accounts.txt"
         # Run the complete scan (same as main workflow but to test Slack)
         python daily_complete_scan.py
         

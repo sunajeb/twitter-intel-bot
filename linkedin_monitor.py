@@ -28,7 +28,8 @@ class LinkedInMonitor:
         if not gemini_key:
             raise ValueError("Gemini API key not found in config or environment")
         genai.configure(api_key=gemini_key)
-        self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        model_name = self.config.get('gemini_model') or os.getenv('GEMINI_MODEL') or 'gemini-2.0-flash'
+        self.model = genai.GenerativeModel(model_name)
         
         # ScrapIn API configuration
         self.scrapin_api_key = self.config.get('scrapin_api_key') or os.getenv('SCRAPIN_API')
@@ -144,69 +145,83 @@ class LinkedInMonitor:
                 posts_text += f"\nPost {i+1}:\n{post['text']}\nURL: {post['url']}\n"
         
         prompt = f"""
-        Analyze the following LinkedIn posts from {date} and categorize them into relevant business intelligence categories.
+        Analyze the following LinkedIn posts from {date} and categorize them into relevant business intelligence categories. Use SHORT HEADLINES (3–8 words, no trailing period).
+
+        STRICTLY INCLUDE ONLY:
+        - Funding rounds or material financial milestones
+        - Product launches or major feature releases
+        - Significant partnerships/integrations
+        - Major customer wins/case studies
+        - Material technology breakthroughs
+        - Key executive hires or org changes
+        - Market expansion/new business lines
+
+        STRICTLY EXCLUDE (mark as noise, do not output):
+        - Awards, shortlists, nominations, anniversaries, generic celebrations
+        - Routine marketing content, webinars, events (unless tied to a launch/partnership)
+        - Generic industry commentary or thought leadership
+        - Reshares/reposts of the same announcement (deduplicate similar messages)
         
         Return the analysis as a valid JSON object with the following structure:
         {{
             "fund_raise": [
                 {{
                     "company": "Company Name",
-                    "description": "Brief description of the funding announcement",
+                    "headline": "Short headline",
                     "url": "post URL",
-                    "critical": true  // Set to true for funding, acquisition, or revenue announcements
+                    "critical": true
                 }}
             ],
             "hiring": [
                 {{
                     "company": "Company Name", 
-                    "description": "Brief description of key hires or team changes",
-                    "url": "post URL"
+                    "headline": "Short headline",
+                    "url": "post URL",
+                    "critical": true
                 }}
             ],
             "customer_success": [
                 {{
                     "company": "Company Name",
-                    "description": "Brief description of customer wins or case studies",
-                    "url": "post URL"
+                    "headline": "Short headline",
+                    "url": "post URL",
+                    "critical": true
                 }}
             ],
             "product": [
                 {{
                     "company": "Company Name",
-                    "description": "Brief description of product launches or features",
-                    "url": "post URL"
+                    "headline": "Short headline",
+                    "url": "post URL",
+                    "critical": true
                 }}
             ],
             "partnerships": [
                 {{
                     "company": "Company Name",
-                    "description": "Brief description of partnerships",
-                    "url": "post URL"
+                    "headline": "Short headline",
+                    "url": "post URL",
+                    "critical": true
                 }}
             ],
             "other": [
                 {{
                     "company": "Company Name",
-                    "description": "Brief description of other significant updates",
+                    "headline": "Short headline",
                     "url": "post URL",
-                    "critical": true  // Set to true if this is about acquisition or major revenue milestone
+                    "critical": true
                 }}
             ]
         }}
         
         IMPORTANT:
         - Only include categories that have actual information
-        - Keep descriptions concise (1-2 sentences)
+        - Use short, headline-style phrases (no full sentences)
         - Focus on business-relevant information
         - Use the exact URL from the post
         - Return ONLY valid JSON, no markdown formatting or extra text
         - If no significant updates, return an empty JSON object: {{}}
-        - CRITICAL FLAG: Set "critical": true for posts about:
-          * Funding rounds or investment announcements
-          * Company acquisitions (buying or being acquired)
-          * Major revenue milestones or financial achievements
-          * IPO or exit announcements
-        - Only include the "critical" field when it's true; omit it otherwise
+        - CRITICAL FLAG: Set "critical": true for high‑impact items (funding, acquisition, major revenue, marquee partnerships, landmark product launches, IPO/exits). Omit when not applicable.
         
         Posts to analyze:
         {posts_text}
@@ -258,7 +273,7 @@ class LinkedInMonitor:
             return {}
     
     def format_for_slack(self, analysis: Dict, date: str) -> str:
-        """Format the analysis for Slack with proper emoji headers and hyperlinks"""
+        """Format as grouped, quoted blocks with per‑item links."""
         # Convert date format from YYYY-MM-DD to '16 Sep' format
         try:
             date_obj = datetime.strptime(date, '%Y-%m-%d')
@@ -267,7 +282,7 @@ class LinkedInMonitor:
             formatted_date = date  # fallback to original if parsing fails
             
         if not analysis or all(len(items) == 0 for items in analysis.values()):
-            return f"*LinkedIn Update: {formatted_date}*\n\nNo significant updates today."
+            return f"*📅 {formatted_date}*\n\nNo significant updates today."
         
         # Emoji mapping for categories
         emoji_map = {
@@ -289,8 +304,14 @@ class LinkedInMonitor:
             'other': 'Other'
         }
         
-        # Build the message
-        message = f"*LinkedIn Update: {formatted_date}*\n"
+        def normalize_headline(s: str) -> str:
+            import re
+            s = s.lower().strip()
+            s = re.sub(r"[\s\-–—]+", " ", s)
+            s = re.sub(r"[^a-z0-9 ]", "", s)
+            return s
+
+        message = f"*📅 {formatted_date}*\n"
         
         for category, items in analysis.items():
             if items and len(items) > 0:
@@ -300,22 +321,38 @@ class LinkedInMonitor:
                 # Add category header with emoji
                 message += f"\n*{emoji} {name}:*\n"
                 
-                # Add each item with hyperlinked company name
+                # Group items by company and dedupe similar headlines
+                company_map = {}
                 for item in items:
-                    company_name = item.get('company', 'Unknown')
-                    description = item.get('description', '')
-                    url = item.get('url', '')
-                    is_critical = item.get('critical', False)
-                    
-                    # Add siren emoji for critical updates (funding, acquisition, revenue)
-                    prefix = "🚨 " if is_critical else ""
-                    
-                    # Format with hyperlinked company name
-                    if url:
-                        message += f"• {prefix}<{url}|{company_name}>: {description}\n"
+                    comp = item.get('company', 'Unknown')
+                    company_map.setdefault(comp, []).append(item)
+
+                for comp, comp_items in company_map.items():
+                    # Dedupe by normalized headline
+                    seen = set()
+                    unique = []
+                    for it in comp_items:
+                        key = normalize_headline(it.get('headline') or it.get('description',''))
+                        if key and key not in seen:
+                            seen.add(key)
+                            unique.append(it)
+
+                    # Company header quoted
+                    first_url = (unique[0].get('url') if unique and unique[0].get('url') else '')
+                    if first_url:
+                        message += f"> <{first_url}|{comp}>\n"
                     else:
-                        message += f"• {prefix}{company_name}: {description}\n"
-        
+                        message += f"> {comp}\n"
+
+                    for it in unique:
+                        url = it.get('url','')
+                        headline = (it.get('headline') or it.get('description','')).strip().rstrip('.')
+                        prefix = "🚨 " if it.get('critical') else ""
+                        if url:
+                            message += f"> • {prefix}<{url}|{headline}>\n"
+                        else:
+                            message += f"> • {prefix}{headline}\n"
+
         return message
     
     def send_slack_notification(self, message: str):
@@ -349,9 +386,9 @@ class LinkedInMonitor:
             date_str = sys.argv[1]
             print(f"Using provided date: {date_str}")
         else:
+            # Use today's date by default so Slack message reflects current date
             today = datetime.now()
-            target_date = today - timedelta(days=1)
-            date_str = target_date.strftime('%Y-%m-%d')
+            date_str = today.strftime('%Y-%m-%d')
         
         print(f"Running LinkedIn analysis for {date_str}")
         

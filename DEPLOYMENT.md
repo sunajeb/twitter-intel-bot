@@ -18,7 +18,6 @@ Add these secrets:
 - `TWITTER_BEARER_TOKEN`: Your Twitter API bearer token
 - `GEMINI_API_KEY`: Your Google Gemini API key  
 - `SLACK_WEBHOOK_URL`: Your Slack webhook URL
-- `TWITTER_ACCOUNTS`: Comma-separated list (e.g., "DecagonAI,SierraPlatform")
 
 ### 3. Deploy Webhook Handler
 
@@ -33,6 +32,7 @@ Add these secrets:
 2. Import your GitHub repository
 3. Add a `vercel.json` file (see below)
 4. Your URL will be: `https://your-project.vercel.app/api/intel`
+5. Ensure `twitter_accounts.txt` and `linkedin_accounts.txt` are present in the repo root; handlers read from these master files.
 
 #### Option C: AWS Lambda
 1. Create Lambda function from the GitHub Actions workflow

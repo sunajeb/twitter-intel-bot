@@ -105,9 +105,9 @@ Formatting → Slack Notification → Daily Summary Accumulation
 
 ### Important Files
 - `config.json` - API keys and configuration (TwitterAPI.io, Gemini, Slack)
-- `accounts.txt` - Twitter accounts to monitor (one per line)
+- `twitter_accounts.txt` - Twitter accounts to monitor (one per line)
 - `linkedin_accounts.txt` - LinkedIn company URLs to monitor (one per line)
-- `accounts_priority.txt` - High-priority accounts for immediate notifications
+  (Deprecated) `accounts_priority.txt` removed. Use `twitter_accounts.txt` only.
 - `rotation_state.json` - Tracks account rotation for API limits
 - `daily_intelligence.json` - Accumulates intelligence for daily summaries
 

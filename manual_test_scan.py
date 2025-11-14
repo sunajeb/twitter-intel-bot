@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Manual test scan - scans only the first account in accounts.txt for testing
+Manual test scan - scans only the first account in twitter_accounts.txt for testing
 Sends immediate response to Slack
 """
 
@@ -15,10 +15,10 @@ def manual_test_scan():
     
     # Load only the first account
     try:
-        with open("accounts.txt", 'r') as f:
+        with open("twitter_accounts.txt", 'r') as f:
             first_line = f.readline().strip()
             if not first_line:
-                print("❌ No accounts found in accounts.txt")
+                print("❌ No accounts found in twitter_accounts.txt")
                 return
                 
             if ':' in first_line:
@@ -30,7 +30,7 @@ def manual_test_scan():
                 company_name = username
                 
     except FileNotFoundError:
-        print("❌ accounts.txt not found")
+        print("❌ twitter_accounts.txt not found")
         return
     
     monitor.account_to_company = {username: company_name}

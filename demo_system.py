@@ -17,7 +17,7 @@ def demo_system_workflow():
     # Show current accounts being monitored
     print("\n📋 ACCOUNTS CONFIGURATION:")
     try:
-        with open("accounts.txt", 'r') as f:
+        with open("twitter_accounts.txt", 'r') as f:
             accounts = []
             for line_num, line in enumerate(f.readlines(), 1):
                 line = line.strip()
@@ -37,7 +37,7 @@ def demo_system_workflow():
         print(f"  • Each account monitored every {cycle_time} minutes")
         
     except FileNotFoundError:
-        print("  ❌ accounts.txt not found")
+        print("  ❌ twitter_accounts.txt not found")
         return
     
     # Simulate how notifications work

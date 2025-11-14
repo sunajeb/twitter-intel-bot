@@ -22,7 +22,7 @@ def precache_user_ids():
     # Load all accounts
     accounts = []
     try:
-        with open("accounts.txt", 'r') as f:
+        with open("twitter_accounts.txt", 'r') as f:
             for line in f.readlines():
                 line = line.strip()
                 if ':' in line:
@@ -31,7 +31,7 @@ def precache_user_ids():
                 elif line:
                     accounts.append(line.strip())
     except FileNotFoundError:
-        print("❌ accounts.txt not found")
+        print("❌ twitter_accounts.txt not found")
         return
     
     # Check which accounts need caching

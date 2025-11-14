@@ -27,12 +27,10 @@ echo "Please enter your API keys when prompted:"
 read -p "Enter Twitter Bearer Token: " TWITTER_TOKEN
 read -p "Enter Gemini API Key: " GEMINI_KEY  
 read -p "Enter Slack Webhook URL: " SLACK_WEBHOOK
-read -p "Enter Twitter accounts to monitor (comma-separated): " ACCOUNTS
 
 gh secret set TWITTER_BEARER_TOKEN --body "$TWITTER_TOKEN"
 gh secret set GEMINI_API_KEY --body "$GEMINI_KEY"
 gh secret set SLACK_WEBHOOK_URL --body "$SLACK_WEBHOOK"
-gh secret set TWITTER_ACCOUNTS --body "$ACCOUNTS"
 
 echo "✅ GitHub secrets configured"
 
@@ -44,8 +42,9 @@ echo "✅ Deployment complete!"
 echo ""
 echo "📋 Next Steps:"
 echo "1. Go to your Vercel dashboard to get the deployment URL"
-echo "2. Configure Slack slash command with: https://your-project.vercel.app/api/intel"
-echo "3. Test with /intel in Slack"
-echo "4. Monitor daily runs in GitHub Actions"
+echo "2. Ensure twitter_accounts.txt and linkedin_accounts.txt contain your master lists"
+echo "3. Configure Slack slash command with: https://your-project.vercel.app/api/intel"
+echo "4. Test with /intel in Slack"
+echo "5. Monitor daily runs in GitHub Actions"
 echo ""
 echo "🎉 Your Twitter intelligence bot is ready!"

@@ -31,7 +31,7 @@ class TwitterMonitor:
     def __init__(self, config_file: str = "config.json"):
         self.config = self.load_config(config_file)
         self.setup_gemini()
-        self.account_to_company = {}  # Will be loaded from accounts.txt
+        self.account_to_company = {}  # Will be loaded from twitter_accounts.txt
         
     def load_config(self, config_file: str) -> Dict:
         """Load configuration from JSON file"""
@@ -45,7 +45,8 @@ class TwitterMonitor:
     def setup_gemini(self):
         """Initialize Gemini API"""
         genai.configure(api_key=self.config.get('gemini_api_key'))
-        self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        model_name = self.config.get('gemini_model', 'gemini-2.0-flash')
+        self.model = genai.GenerativeModel(model_name)
     
     def fetch_twitter_data(self, username: str) -> List[Tweet]:
         """Fetch recent tweets from a Twitter username using TwitterAPI.io"""
@@ -143,98 +144,143 @@ class TwitterMonitor:
         return company_tweets
 
     def analyze_tweets_with_gemini(self, tweets: List[Tweet]) -> str:
-        """Analyze tweets using Gemini 2.5 Flash for headline generation"""
+        """Analyze tweets and return grouped Slack-friendly text (short headlines)."""
         if not tweets:
             return "Nothing important today"
-        
-        # First, group tweets into threads to capture complete context
-        threaded_tweets = self.group_tweets_into_threads(tweets)
-        
-        # Then group by company for analysis
-        company_tweets = self.group_tweets_by_company(threaded_tweets)
-        
-        headlines = []
-        
-        for company, company_tweet_list in company_tweets.items():
-            if not company_tweet_list:
+
+        # Group tweets (keep mapping for linking)
+        threaded = self.group_tweets_into_threads(tweets)
+        company_tweets = self.group_tweets_by_company(threaded)
+
+        def normalize_headline(s: str) -> str:
+            import re
+            s = s.lower().strip()
+            s = re.sub(r"[\s\-–—]+", " ", s)
+            s = re.sub(r"[^a-z0-9 ]", "", s)
+            return s
+
+        def dedupe_items(items):
+            seen = set()
+            unique = []
+            for it in items:
+                key = normalize_headline(it.get('headline', ''))
+                if key and key not in seen:
+                    seen.add(key)
+                    unique.append(it)
+            return unique
+
+        # Category ordering and emojis
+        category_map = [
+            ('fund_raise', '💰 Fund Raise'),
+            ('partnerships', '🤝 Partnerships'),
+            ('product', '🚀 Product'),
+            ('customer_success', '🎯 Customer Success'),
+            ('hiring', '👥 Hiring'),
+            ('go_to_market', '📈 Go-to-Market'),
+            ('other', '📰 Other')
+        ]
+
+        all_sections = []
+
+        for company, company_list in company_tweets.items():
+            if not company_list:
                 continue
-                
+
+            # Prepare text with TWEET_ID_i markers per company
             tweets_text = "\n\n".join([
-                f"TWEET_ID_{i}: @{tweet.username} ({tweet.created_at}):\n{tweet.text}\nURL: {tweet.url}"
-                for i, tweet in enumerate(company_tweet_list)
+                f"TWEET_ID_{i}: @{t.username} ({t.created_at})\n{t.text}\nURL: {t.url}"
+                for i, t in enumerate(company_list)
             ])
-            
+
+            # JSON prompt for grouped, short headlines with critical flag and strict filters
             prompt = f"""
-            You are a competitive intelligence analyst. Analyze the following tweets from {company} and create concise headlines for any significant business developments posted TODAY.
+            You are a competitive intelligence analyst. From the tweets below by {company}, extract only SHORT HEADLINES (3–8 words, no trailing period) that indicate real competitive intelligence.
 
-            ONLY generate headlines for tweets that contain:
-            1. Funding announcements or business milestones
-            2. Product launches or major feature releases  
-            3. Significant partnership announcements
-            4. Major customer wins or case studies
-            5. Technology breakthroughs or innovations
-            6. Key executive hires or team changes
-            7. Market expansion or new business lines
+            STRICTLY INCLUDE ONLY:
+            - Funding rounds or material financial milestones
+            - Product launches or major feature releases
+            - Significant partnerships/integrations
+            - Major customer wins/case studies
+            - Material technology breakthroughs
+            - Key executive hires or org changes
+            - Market expansion/new business lines
 
-            IGNORE:
-            - General marketing content
-            - Routine product updates
-            - Generic industry commentary
-            - Personal opinions or thoughts
-            - Event announcements (unless major partnership/product launch)
+            STRICTLY EXCLUDE (mark as noise, do not output):
+            - Awards, shortlists, nominations, anniversaries, generic celebrations
+            - Routine marketing content, webinars, events (unless tied to a launch/partnership)
+            - Generic industry commentary or thought leadership
+            - Reshares/reposts of the same announcement (deduplicate similar messages)
 
-            Organize your output into these categories with appropriate emojis:
-            💰 Fund Raise
-            👥 Hiring  
-            🎯 Customer Success
-            🚀 Product
-            📈 Go-to-Market
-            📰 Other
+            Return VALID JSON ONLY with this structure (no markdown):
+            {{
+              "fund_raise": [{{"headline": "...", "tweet_id": "TWEET_ID_X", "critical": true}}],
+              "partnerships": [{{"headline": "...", "tweet_id": "TWEET_ID_X", "critical": true}}],
+              "product": [{{"headline": "...", "tweet_id": "TWEET_ID_X", "critical": true}}],
+              "customer_success": [{{"headline": "...", "tweet_id": "TWEET_ID_X", "critical": true}}],
+              "hiring": [{{"headline": "...", "tweet_id": "TWEET_ID_X", "critical": true}}],
+              "go_to_market": [{{"headline": "...", "tweet_id": "TWEET_ID_X", "critical": true}}],
+              "other": [{{"headline": "...", "tweet_id": "TWEET_ID_X", "critical": true}}]
+            }}
 
-            For each category that has relevant information, use this format:
-            *💰 Fund Raise*
-            • Company: Headline description TWEET_ID_X
+            The "critical" flag should be set to true for items that are particularly high-impact (e.g., funding/acquisition, major revenue, marquee partnerships, landmark product launches). Omit the field when not applicable.
 
-            *👥 Hiring*
-            • Company: Headline description TWEET_ID_X
-
-            Example output:
-            *💰 Fund Raise*
-            • Decagon: Raises $131M Series C funding round TWEET_ID_0
-
-            *🚀 Product*  
-            • Sierra: Launches new voice AI platform for enterprise customers TWEET_ID_1
-
-            IMPORTANT: 
-            - Only include categories that have actual information
-            - ALWAYS end each headline with the TWEET_ID_X that corresponds to the specific tweet
-            - Every single headline MUST have a TWEET_ID_X at the end - this is required for linking
-            - Use the exact TWEET_ID_X that corresponds to the specific tweet you analyzed
-            - If no tweets contain significant business developments, respond with exactly "Nothing significant today"
-
-            Today's tweets from {company}:
+            Tweets to analyze:
             {tweets_text}
             """
-            
+
             try:
-                response = self.model.generate_content(prompt)
-                result = response.text.strip()
-                
-                if result and result != "Nothing significant today":
-                    # Process the result to replace TWEET_IDs with actual URLs
-                    formatted_headlines = self.replace_tweet_ids_with_urls(result, company_tweet_list)
-                    if formatted_headlines:
-                        headlines.append(formatted_headlines)
-                    
+                resp = self.model.generate_content(prompt)
+                result_text = (resp.text or '').strip()
+                # Strip accidental code fences
+                if result_text.startswith('```'):
+                    result_text = result_text.strip('`\n')
+                import json as _json
+                parsed = _json.loads(result_text) if result_text else {}
+
+                # Build mapping from TWEET_ID_i to URLs
+                url_map = {}
+                for i, t in enumerate(company_list):
+                    url_map[f"TWEET_ID_{i}"] = t.url
+
+                # Dedupe and format per category
+                sections = []
+                for key, title in category_map:
+                    items = parsed.get(key) or []
+                    if not items:
+                        continue
+                    items = dedupe_items(items)
+
+                    # Company header (quoted block)
+                    # Link company name to first item's URL if available
+                    first_url = url_map.get(items[0].get('tweet_id', ''), company_list[0].url if company_list else '')
+                    company_header = f"> <{first_url}|{company}>"
+
+                    lines = [company_header]
+                    for it in items:
+                        url = url_map.get(it.get('tweet_id', ''), first_url)
+                        headline = it.get('headline', '').strip().rstrip('.')
+                        if not headline:
+                            continue
+                        prefix = "🚨 " if it.get('critical') else ""
+                        lines.append(f"> • {prefix}<{url}|{headline}>")
+
+                    if len(lines) > 1:
+                        # Add category title once before first company block of that category
+                        if not any(s.startswith(f"*{title}*") for s in sections):
+                            sections.append(f"*{title}*")
+                        sections.append("\n".join(lines))
+
+                if sections:
+                    all_sections.append("\n".join(sections))
+
             except Exception as e:
                 print(f"Error analyzing tweets for {company}: {e}")
                 continue
-        
-        if not headlines:
+
+        if not all_sections:
             return "Nothing important today"
-        
-        # Combine all headlines
-        return "\n".join(headlines)
+
+        return "\n\n".join(all_sections)
     
     def replace_tweet_ids_with_urls(self, headlines_text: str, tweets: List[Tweet]) -> str:
         """Replace TWEET_ID_X placeholders with hyperlinked company names like LinkedIn format"""
@@ -390,7 +436,7 @@ _Competitive Implications:_ Their focus on sentiment detection and enterprise cl
         except Exception as e:
             print(f"Failed to send email: {e}")
     
-    def load_accounts(self, accounts_file: str = "accounts.txt") -> List[str]:
+    def load_accounts(self, accounts_file: str = "twitter_accounts.txt") -> List[str]:
         """Load Twitter accounts using rotation system for API limits"""
         from account_rotation import AccountRotator
         
@@ -416,7 +462,7 @@ _Competitive Implications:_ Their focus on sentiment detection and enterprise cl
     def get_tracked_accounts_list(self) -> str:
         """Get formatted list of all tracked accounts"""
         try:
-            with open("accounts.txt", 'r') as f:
+            with open("twitter_accounts.txt", 'r') as f:
                 accounts = []
                 for line in f.readlines():
                     line = line.strip()
@@ -486,16 +532,18 @@ _Competitive Implications:_ Their focus on sentiment detection and enterprise cl
         # Get list of accounts being tracked
         accounts_list = self.get_tracked_accounts_list()
         
-        formatted_date = datetime.now().strftime('%d %b')  # 08 Sep format
+        # Header: 📅 Sat, 8 Nov
+        dt = datetime.now()
+        formatted_date = dt.strftime('%a, %d %b').replace(', 0', ', ').replace(' 0', ' ')
         
         payload = {
-            "text": f"Twitter Update: {formatted_date}",
+            "text": f"📅 {formatted_date}",
             "blocks": [
                 {
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": f"*Twitter Update: {formatted_date}*\n\n{message}"
+                        "text": f"*📅 {formatted_date}*\n\n{message}"
                     }
                 }
             ]
