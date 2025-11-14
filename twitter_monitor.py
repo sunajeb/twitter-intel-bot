@@ -197,6 +197,15 @@ class TwitterMonitor:
             prompt = f"""
             You are a competitive intelligence analyst. From the tweets below by {company}, extract only SHORT HEADLINES (3–8 words, no trailing period) that indicate real competitive intelligence.
 
+            STYLE RULE (avoid redundancy):
+            - Do not repeat the company name in headlines, because each headline appears under the company's section.
+            - Prefer verb-first phrasing. Examples:
+              Bad: "{company} partners with Deutsche Telekom" → Good: "Partners with Deutsche Telekom"
+              Bad: "{company} launches GPT-5.1 Instant" → Good: "Launches GPT-5.1 Instant"
+              Bad: "{company} hires Latané Conant as CMO" → Good: "Hires Latané Conant as CMO"
+              Bad: "{company} raises $61M Series A" → Good: "Raises $61M Series A"
+            - Include other entities for clarity (e.g., partner name), but keep it concise.
+
             STRICTLY INCLUDE ONLY:
             - Funding rounds or material financial milestones
             - Product launches or major feature releases

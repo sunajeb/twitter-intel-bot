@@ -147,6 +147,15 @@ class LinkedInMonitor:
         prompt = f"""
         Analyze the following LinkedIn posts from {date} and categorize them into relevant business intelligence categories. Use SHORT HEADLINES (3–8 words, no trailing period).
 
+        STYLE RULE (avoid redundancy):
+        - Do not repeat the company name in headlines, because each headline appears under the company's section.
+        - Prefer verb-first phrasing. Examples:
+          Bad: "Acme partners with Deutsche Telekom" → Good: "Partners with Deutsche Telekom"
+          Bad: "Acme launches GPT-5.1 Instant" → Good: "Launches GPT-5.1 Instant"
+          Bad: "Acme hires Latané Conant as CMO" → Good: "Hires Latané Conant as CMO"
+          Bad: "Acme raises $61M Series A" → Good: "Raises $61M Series A"
+        - Include other entities for clarity (partner/customer), but keep it concise.
+
         STRICTLY INCLUDE ONLY:
         - Funding rounds or material financial milestones
         - Product launches or major feature releases
