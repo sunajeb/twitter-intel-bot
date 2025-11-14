@@ -44,7 +44,7 @@ def daily_complete_scan():
     print(f"📊 Daily scan: {len(all_accounts)} accounts to process")
     print(f"📋 Accounts: {[f'@{acc}' for acc in all_accounts]}")
     
-    all_intelligence = []
+    all_tweets = []
     successful_accounts = 0
     
     # Process each account with delays to respect rate limits
@@ -67,15 +67,9 @@ def daily_complete_scan():
             
             print(f"📝 Found {len(tweets)} tweets from @{username}")
             
-            # Analyze tweets for this account
-            analysis = monitor.analyze_tweets_with_gemini(tweets)
-            
-            if analysis and analysis != "Nothing important today":
-                print(f"🔍 Intelligence found: {analysis[:100]}...")
-                all_intelligence.append(analysis)
-                successful_accounts += 1
-            else:
-                print(f"📰 No significant intelligence from @{username}")
+            # Accumulate tweets; analyze once after loop to avoid repeated headers
+            all_tweets.extend(tweets)
+            successful_accounts += 1
                 
         except Exception as e:
             print(f"❌ Error processing @{username}: {e}")
@@ -84,10 +78,9 @@ def daily_complete_scan():
     print(f"\n🏁 Daily scan completed!")
     print(f"✅ Intelligence found from: {successful_accounts}/{len(all_accounts)} accounts")
     
-    if all_intelligence:
-        # Combine all intelligence into one message
-        combined_intelligence = "\n\n".join(all_intelligence)
-        
+    if all_tweets:
+        # Analyze all tweets together to produce single headers per category
+        combined_intelligence = monitor.analyze_tweets_with_gemini(all_tweets)
         monitor.send_immediate_slack_notification(combined_intelligence)
         print("📤 Sent complete daily intelligence summary to Slack")
     else:

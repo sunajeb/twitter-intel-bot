@@ -353,7 +353,7 @@ class LinkedInMonitor:
                         is_siren = (category == 'fund_raise') or ('acquisition' in hl or 'acquires' in hl or 'acquired' in hl or 'merger' in hl or 'acquire' in hl)
                         prefix = "🚨 " if is_siren else ""
                         if url:
-                            message += f"> • {prefix}{headline} <{url}|↗>\n"
+                            message += f"> • {prefix}{headline} <{url}|»>\n"
                         else:
                             message += f"> • {prefix}{headline}\n"
 

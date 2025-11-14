@@ -287,7 +287,7 @@ class TwitterMonitor:
                         is_siren = (key == 'fund_raise') or ('acquisition' in hl or 'acquires' in hl or 'acquired' in hl or 'merger' in hl or 'acquire' in hl)
                         prefix = "🚨 " if is_siren else ""
                         if url:
-                            lines.append(f"> • {prefix}{headline} <{url}|↗>")
+                            lines.append(f"> • {prefix}{headline} <{url}|»>")
                         else:
                             lines.append(f"> • {prefix}{headline}")
 
