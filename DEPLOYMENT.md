@@ -15,7 +15,6 @@ git push -u origin main
 Go to your repository → Settings → Secrets and variables → Actions
 
 Add these secrets:
-- `TWITTER_BEARER_TOKEN`: Your Twitter API bearer token
 - `GEMINI_API_KEY`: Your Google Gemini API key  
 - `SLACK_WEBHOOK_URL`: Your Slack webhook URL
 

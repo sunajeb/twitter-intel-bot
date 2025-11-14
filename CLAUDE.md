@@ -13,7 +13,6 @@ Twitter & LinkedIn Intelligence Bot - A competitive intelligence monitoring syst
 - `TWITTERAPI_IO_KEY` - TwitterAPI.io key for Twitter data
 - `GEMINI_API_KEY` - Google Gemini API key for AI analysis
 - `SLACK_WEBHOOK_URL` - Slack webhook for notifications
-- `TWITTER_BEARER_TOKEN` - Twitter API bearer token
 
 Never hardcode API keys in the source code. All keys should be loaded from environment variables or config.json (which should never be committed).
 
