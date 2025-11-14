@@ -532,18 +532,18 @@ _Competitive Implications:_ Their focus on sentiment detection and enterprise cl
         # Get list of accounts being tracked
         accounts_list = self.get_tracked_accounts_list()
         
-        # Header: 📅 Sat, 8 Nov
+        # Header: :date: Fri, 14 Nov: Twitter
         dt = datetime.now()
         formatted_date = dt.strftime('%a, %d %b').replace(', 0', ', ').replace(' 0', ' ')
         
         payload = {
-            "text": f"📅 {formatted_date}",
+            "text": f":date: {formatted_date}: Twitter",
             "blocks": [
                 {
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": f"*📅 {formatted_date}*\n\n{message}"
+                        "text": f"*:date: {formatted_date}: Twitter*\n\n{message}"
                     }
                 }
             ]
@@ -562,17 +562,18 @@ _Competitive Implications:_ Their focus on sentiment detection and enterprise cl
             print("Slack webhook URL not configured")
             return
         
-        current_date = datetime.now().strftime('%Y-%m-%d')
+        dt = datetime.now()
+        current_date = dt.strftime('%a, %d %b').replace(', 0', ', ').replace(' 0', ' ')
         accounts_list = self.get_tracked_accounts_list()
         
         payload = {
-            "text": f"Daily Intelligence Summary - {current_date}",
+            "text": f":date: {current_date}: Twitter",
             "blocks": [
                 {
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": f"*{current_date}*\n\n{summary}\n\n📊 Tracking: {accounts_list}"
+                        "text": f"*:date: {current_date}: Twitter*\n\n{summary}\n\n📊 Tracking: {accounts_list}"
                     }
                 }
             ]

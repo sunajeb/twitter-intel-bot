@@ -277,12 +277,12 @@ class LinkedInMonitor:
         # Convert date format from YYYY-MM-DD to '16 Sep' format
         try:
             date_obj = datetime.strptime(date, '%Y-%m-%d')
-            formatted_date = date_obj.strftime('%-d %b')  # %-d removes leading zero
+            formatted_date = date_obj.strftime('%a, %d %b').replace(', 0', ', ').replace(' 0', ' ')
         except:
             formatted_date = date  # fallback to original if parsing fails
             
         if not analysis or all(len(items) == 0 for items in analysis.values()):
-            return f"*📅 {formatted_date}*\n\nNo significant updates today."
+            return f"*:date: {formatted_date}: Linkedin*\n\nNo significant updates today."
         
         # Emoji mapping for categories
         emoji_map = {
@@ -311,7 +311,7 @@ class LinkedInMonitor:
             s = re.sub(r"[^a-z0-9 ]", "", s)
             return s
 
-        message = f"*📅 {formatted_date}*\n"
+        message = f"*:date: {formatted_date}: Linkedin*\n"
         
         for category, items in analysis.items():
             if items and len(items) > 0:
