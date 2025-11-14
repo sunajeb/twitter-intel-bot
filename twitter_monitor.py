@@ -231,11 +231,33 @@ class TwitterMonitor:
             try:
                 resp = self.model.generate_content(prompt)
                 result_text = (resp.text or '').strip()
-                # Strip accidental code fences
-                if result_text.startswith('```'):
-                    result_text = result_text.strip('`\n')
+
+                # Clean common formatting wrappers from LLMs
+                cleaned = result_text
+                if cleaned.startswith('```json'):
+                    cleaned = cleaned[7:]
+                if cleaned.startswith('```'):
+                    cleaned = cleaned[3:]
+                if cleaned.endswith('```'):
+                    cleaned = cleaned[:-3]
+                cleaned = cleaned.strip()
+
+                # Remove trailing commas before } or ] (common JSON mistake)
+                import re as _re
+                cleaned = _re.sub(r',\s*}', '}', cleaned)
+                cleaned = _re.sub(r',\s*]', ']', cleaned)
+
                 import json as _json
-                parsed = _json.loads(result_text) if result_text else {}
+                try:
+                    parsed = _json.loads(cleaned) if cleaned else {}
+                except _json.JSONDecodeError:
+                    # Try to recover JSON object portion
+                    start = cleaned.find('{')
+                    end = cleaned.rfind('}')
+                    if start != -1 and end != -1 and end > start:
+                        parsed = _json.loads(cleaned[start:end+1])
+                    else:
+                        raise
 
                 # Build mapping from TWEET_ID_i to URLs
                 url_map = {}
