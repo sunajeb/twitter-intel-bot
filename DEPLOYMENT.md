@@ -26,17 +26,8 @@ Add these secrets:
 3. Deploy automatically
 4. Your URL will be: `https://your-app-name.railway.app/intel`
 
-#### Option B: Vercel
-1. Go to [vercel.com](https://vercel.com)
-2. Import your GitHub repository
-3. Add a `vercel.json` file (see below)
-4. Your URL will be: `https://your-project.vercel.app/api/intel`
-5. Ensure `twitter_accounts.txt` and `linkedin_accounts.txt` are present in the repo root; handlers read from these master files.
-
-#### Option C: AWS Lambda
-1. Create Lambda function from the GitHub Actions workflow
-2. Set up API Gateway trigger
-3. Your URL will be: `https://api-id.execute-api.region.amazonaws.com/prod/intel`
+#### Note
+This project currently uses GitHub Actions only (daily and test trackers). Serverless handlers and Vercel deployment are not required.
 
 ### 4. Configure Slack Slash Command
 
@@ -52,28 +43,10 @@ Add these secrets:
 ## Files Created
 
 - `.github/workflows/daily-monitor.yml` - Daily automation
-- `.github/workflows/deploy-webhook.yml` - Webhook deployment  
-- `slack_webhook_handler.py` - Handles `/intel` commands
-- `requirements.txt` - Updated dependencies
+- `requirements.txt` - Dependencies
 
-## Vercel Configuration (if using Vercel)
-
-Create `vercel.json`:
-```json
-{
-  "functions": {
-    "slack_webhook_handler.py": {
-      "runtime": "python3.9"
-    }
-  },
-  "routes": [
-    {
-      "src": "/api/intel",
-      "dest": "/slack_webhook_handler.py"
-    }
-  ]
-}
-```
+## Serverless
+Not used in the current setup. You can add serverless endpoints later if needed.
 
 ## Testing
 

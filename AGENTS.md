@@ -1,8 +1,8 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- Root Python modules: `twitter_monitor.py`, `daily_complete_scan.py`, `daily_summary.py`, `linkedin_monitor.py`, `slack_webhook_handler.py`, `twitter_api_io_client.py`.
-- Serverless endpoint: `api/intel.py` (Vercel). CI workflows: `.github/workflows/*`.
+- Root Python modules: `twitter_monitor.py`, `daily_complete_scan.py`, `daily_summary.py`, `linkedin_monitor.py`, `twitter_api_io_client.py`.
+- CI workflows: `.github/workflows/*` (daily + test trackers).
 - Config and data: `config.json` (local only), `accounts*.txt`, `daily_intelligence.json`, `rotation_state.json`, `user_id_cache.json`.
 - Tests and utilities: `test_*.py` scripts for targeted checks.
 
@@ -12,7 +12,6 @@ pip install -r requirements.txt               # Install deps
 python twitter_monitor.py                      # Run daily analysis locally
 python daily_complete_scan.py                  # One-pass scan (Slack summary)
 python linkedin_monitor.py                     # LinkedIn daily analysis
-python slack_webhook_handler.py                # Local Flask server (port 3000)
 python test_twitterapi_io.py                   # Verify TwitterAPI.io client
 ```
 GitHub Actions: see `.github/workflows/daily-monitor.yml` (scheduled) and `test-twitter-tracker.yml` (manual test).
