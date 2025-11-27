@@ -1,0 +1,46 @@
+name: Test LinkedIn Tracker (Phantombuster)
+
+on:
+  workflow_dispatch: # Manual trigger only
+
+jobs:
+  test-linkedin-tracker-phb:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Create config.json for test
+      run: |
+        echo '{
+          "gemini_api_key": "${{ secrets.GEMINI_API_KEY }}",
+          "slack_webhook_url": "${{ secrets.TEST_SLACK_WEBHOOK_URL }}"
+        }' > config.json
+
+    - name: Run LinkedIn Tracker via Phantombuster (test Slack)
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.TEST_SLACK_WEBHOOK_URL }}
+        PHANTOMBUSTER_API_KEY: ${{ secrets.PHANTOMBUSTER_API_KEY }}
+        PHANTOMBUSTER_AGENT_ID: ${{ secrets.PHANTOMBUSTER_AGENT_ID }}
+        LI_AT: ${{ secrets.LI_AT }}
+        PHB_USER_AGENT: ${{ secrets.PHB_USER_AGENT }}
+        SCRAPIN_API: ${{ secrets.SCRAPIN_API }} # not used here, but keeps base class happy
+      run: |
+        echo "🧪 Testing LinkedIn Tracker (Phantombuster) with test Slack bot..."
+        python linkedin_monitor_phb.py
+
+    - name: Log completion
+      run: |
+        echo "✅ Test LinkedIn tracker (Phantombuster) completed at $(date)"
+

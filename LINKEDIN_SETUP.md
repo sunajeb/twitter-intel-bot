@@ -11,6 +11,7 @@ Make sure these files are committed to your GitHub repository:
 5. **add_linkedin_account.py** - Helper to add accounts
 6. **.github/workflows/competitor-news.yml** - Updated for LinkedIn daily monitoring
 7. **.github/workflows/test-linkedin-tracker.yml** - Updated for test runs
+8. **.github/workflows/test-linkedin-tracker-phb.yml** - Test runs using Phantombuster
 
 ## GitHub Secrets Required
 
@@ -19,6 +20,10 @@ Make sure these secrets are set in your GitHub repository settings:
 1. **GEMINI_API_KEY** - Your Google Gemini API key
 2. **SLACK_WEBHOOK_URL** - Production Slack webhook URL
 3. **TEST_SLACK_WEBHOOK_URL** - Test Slack webhook URL
+4. **PHANTOMBUSTER_API_KEY** - Phantombuster API key
+5. **LI_AT** - LinkedIn session cookie value used by Phantombuster
+6. **PHANTOMBUSTER_AGENT_ID** - Optional: override the default LinkedIn Activity Extractor agent ID
+7. **PHB_USER_AGENT** - Optional: your browser User-Agent string
 
 ## How It Works
 
@@ -29,6 +34,16 @@ Make sure these secrets are set in your GitHub repository settings:
    - Analyzes posts with Gemini AI to extract business intelligence
    - Formats with proper emoji categories (💰 Fund Raise, 👥 Hiring, etc.)
    - Sends to Slack with hyperlinked company names
+
+### Phantombuster Variant (Test Only)
+
+- Workflow: `.github/workflows/test-linkedin-tracker-phb.yml`
+- Script: `linkedin_monitor_phb.py`
+- Behavior: identical analysis/formatting/Slack posting, but data is fetched by launching a Phantombuster LinkedIn Activity Extractor for each company URL and downloading the resulting `result.json`, filtered to the selected date.
+
+Notes:
+- Provide `LI_AT` and `PHANTOMBUSTER_API_KEY` as secrets. Optionally set `PHB_USER_AGENT` and `PHANTOMBUSTER_AGENT_ID`.
+- The script converts the run date to `MM-DD-YYYY` for the Phantom’s `dateAfter` and then locally filters posts to the target day to match the existing flow.
 
 ## Adding More Companies
 
