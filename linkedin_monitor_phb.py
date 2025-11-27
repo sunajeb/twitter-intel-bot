@@ -70,7 +70,12 @@ class PhantomBusterClient:
     def _post(self, path: str, payload: dict) -> dict:
         url = f"{self.BASE}{path}"
         r = requests.post(url, headers=self.headers, data=json.dumps(payload), timeout=60)
-        r.raise_for_status()
+        if r.status_code >= 400:
+            try:
+                body = r.text
+            except Exception:
+                body = "<no body>"
+            raise requests.HTTPError(f"{r.status_code} POST {url} – {body}")
         return r.json()
 
     def _get(self, path: str, params: Optional[dict] = None) -> dict:
@@ -161,9 +166,9 @@ def parse_phb_items(items: List[dict], company_url: str, start_date: str, end_da
 
 
 def run_with_phantombuster(date_str: Optional[str] = None):
-    # Determine date
+    # Determine date (default to yesterday to ensure stable availability)
     if not date_str:
-        date_str = datetime.now().strftime('%Y-%m-%d')
+        date_str = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
 
     # Load env for Phantombuster
     phb_key = os.getenv('PHANTOMBUSTER_API_KEY')
@@ -239,4 +244,3 @@ if __name__ == "__main__":
     import sys
     date_arg = sys.argv[1] if len(sys.argv) > 1 else None
     run_with_phantombuster(date_arg)
-
