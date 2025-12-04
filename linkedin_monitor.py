@@ -68,36 +68,35 @@ class LinkedInMonitor:
                 print(f"Attempt {attempt + 1} failed: {str(e)}. Retrying in {delay:.2f} seconds...")
                 time.sleep(delay)
     
-    def get_linkedin_posts(self, linkedin_url: str, start_date: str, end_date: str) -> List[Dict]:
-        """Fetch LinkedIn posts for a company within a date range"""
+    def get_linkedin_posts(self, linkedin_url: str, hours_back: int = 24) -> List[Dict]:
+        """Fetch LinkedIn posts for a company from the last N hours"""
         querystring = {
             "apikey": self.scrapin_api_key,
             "linkedInUrl": linkedin_url
         }
-        
+
         def make_request():
             response = requests.get(self.scrapin_url, params=querystring, timeout=30)
             response.raise_for_status()
             return response.json()
-        
+
         try:
             # Use retry logic for the API call
             data = self.retry_with_backoff(make_request)
-            
+
             if not data.get('success'):
                 raise ValueError(f"API request failed: {data}")
-            
-            # Filter posts by date range
-            start_datetime = datetime.strptime(start_date, '%Y-%m-%d')
-            end_datetime = datetime.strptime(end_date, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
-            
+
+            # Filter posts by rolling time window (last 24 hours)
+            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours_back)
+
             filtered_posts = []
             for post in data.get('posts', []):
                 try:
                     post_date = datetime.fromisoformat(post['activityDate'].replace('Z', '+00:00'))
-                    post_date = post_date.replace(tzinfo=None)
-                    
-                    if start_datetime <= post_date <= end_datetime:
+
+                    # Keep timezone-aware for comparison
+                    if post_date >= cutoff_time:
                         filtered_posts.append({
                             "text": post['text'],
                             "url": post['activityUrl'],
@@ -107,7 +106,7 @@ class LinkedInMonitor:
                 except (KeyError, ValueError) as e:
                     print(f"Error processing post: {e}")
                     continue
-            
+
             return filtered_posts
         
         except Exception as e:
@@ -392,30 +391,34 @@ class LinkedInMonitor:
     
     def run_daily_analysis(self):
         """Run the daily LinkedIn analysis"""
-        # Get yesterday's date (or today for testing)
-        # Allow override via command line argument or environment variable
+        # Get posts from last 24 hours (rolling window)
+        # Allow override via command line argument for testing specific dates
         import sys
         if len(sys.argv) > 1:
+            # Manual date override for testing - use yesterday's date
             date_str = sys.argv[1]
-            print(f"Using provided date: {date_str}")
+            print(f"Using provided date for display: {date_str}")
+            # Note: When testing with a specific date, we still fetch last 24 hours
+            # but display message with the provided date
         else:
-            # Use today's date by default so Slack message reflects current date
+            # Use today's date for Slack message display
             today = datetime.now()
             date_str = today.strftime('%Y-%m-%d')
-        
-        print(f"Running LinkedIn analysis for {date_str}")
-        
+
+        print(f"Running LinkedIn analysis for last 24 hours")
+        print(f"Display date: {date_str}")
+
         # Load accounts
         accounts = self.load_accounts()
         if not accounts:
             print("No LinkedIn accounts to monitor")
             return
-        
-        # Fetch posts from all accounts
+
+        # Fetch posts from all accounts (last 24 hours)
         all_posts = []
         for account_url in accounts:
             print(f"Fetching posts from {account_url}")
-            posts = self.get_linkedin_posts(account_url, date_str, date_str)
+            posts = self.get_linkedin_posts(account_url, hours_back=24)
             all_posts.extend(posts)
             
             # Small delay between requests

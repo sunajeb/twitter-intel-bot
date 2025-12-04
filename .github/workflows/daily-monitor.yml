@@ -1,9 +1,9 @@
 name: Twitter Tracker
 on:
   schedule:
-    # Start at 8:00 AM IST daily (02:30 UTC) 
+    # Start at 7:00 AM IST daily (01:30 UTC)
     # 23 accounts × 6sec delays = ~2 minutes total with TwitterAPI.io
-    - cron: '30 2 * * *'
+    - cron: '30 1 * * *'
   workflow_dispatch: # Allow manual triggering
 
 jobs:
