@@ -567,14 +567,17 @@ _Competitive Implications:_ Their focus on sentiment detection and enterprise cl
         if not webhook_url:
             print("Slack webhook URL not configured")
             return
-        
+
         # Get list of accounts being tracked
         accounts_list = self.get_tracked_accounts_list()
-        
+
         # Header: :date: Fri, 14 Nov: Twitter
         dt = datetime.now()
         formatted_date = dt.strftime('%a, %d %b').replace(', 0', ', ').replace(' 0', ' ')
-        
+
+        # Add footer with Project Cintel link
+        footer = f"\n\n:brain: <https://sierra-gules.vercel.app/|More details on Project Cintel>"
+
         payload = {
             "text": f":date: {formatted_date}: Twitter",
             "blocks": [
@@ -582,12 +585,12 @@ _Competitive Implications:_ Their focus on sentiment detection and enterprise cl
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": f"*:date: {formatted_date}: Twitter*\n\n{message}"
+                        "text": f"*:date: {formatted_date}: Twitter*\n\n{message}{footer}"
                     }
                 }
             ]
         }
-        
+
         response = requests.post(webhook_url, json=payload)
         if response.status_code == 200:
             print("Immediate Slack notification sent successfully")
