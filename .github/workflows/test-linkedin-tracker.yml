@@ -24,12 +24,13 @@ jobs:
     - name: Create config.json for test
       run: |
         echo '{
-          "gemini_api_key": "${{ secrets.GEMINI_API_KEY }}",
+          "openai_api_key": "${{ secrets.OPENAI_API_KEY }}",
           "slack_webhook_url": "${{ secrets.TEST_SLACK_WEBHOOK_URL }}"
         }' > config.json
-        
+
     - name: Test LinkedIn Tracker
       env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         SLACK_WEBHOOK_URL: ${{ secrets.TEST_SLACK_WEBHOOK_URL }}
         SCRAPIN_API: ${{ secrets.SCRAPIN_API }}
       run: |

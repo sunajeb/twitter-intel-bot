@@ -24,14 +24,14 @@ jobs:
     - name: Create test config
       env:
         TWITTERAPI_IO_KEY: ${{ secrets.TWITTERAPI_IO_KEY }}
-        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         TEST_SLACK_WEBHOOK_URL: ${{ secrets.TEST_SLACK_WEBHOOK_URL }}
       run: |
         echo "🔧 Creating test configuration..."
         cat > config.json << EOF
         {
           "twitterapi_io_key": "$TWITTERAPI_IO_KEY",
-          "gemini_api_key": "$GEMINI_API_KEY", 
+          "openai_api_key": "$OPENAI_API_KEY",
           "slack_webhook_url": "$TEST_SLACK_WEBHOOK_URL"
         }
         EOF

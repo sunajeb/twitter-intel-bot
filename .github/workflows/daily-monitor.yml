@@ -27,13 +27,13 @@ jobs:
     - name: Run Twitter monitoring
       env:
         TWITTERAPI_IO_KEY: ${{ secrets.TWITTERAPI_IO_KEY }}
-        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
       run: |
         cat > config.json << EOF
         {
           "twitterapi_io_key": "$TWITTERAPI_IO_KEY",
-          "gemini_api_key": "$GEMINI_API_KEY",
+          "openai_api_key": "$OPENAI_API_KEY",
           "slack_webhook_url": "$SLACK_WEBHOOK_URL"
         }
         EOF
