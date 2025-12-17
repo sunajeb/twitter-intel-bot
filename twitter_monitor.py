@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Daily Twitter Monitoring System for @DecagonAI and @SierraPlatform
-Analyzes tweets using Gemini 2.5 Flash and sends notifications via Slack/Email
+Analyzes tweets using OpenAI GPT-4o and sends notifications via Slack/Email
 """
 
 import os
@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import List, Dict, Optional
-import google.generativeai as genai
+from openai import OpenAI
 from dataclasses import dataclass
 
 
@@ -30,7 +30,7 @@ class Tweet:
 class TwitterMonitor:
     def __init__(self, config_file: str = "config.json"):
         self.config = self.load_config(config_file)
-        self.setup_gemini()
+        self.setup_openai()
         self.account_to_company = {}  # Will be loaded from twitter_accounts.txt
         
     def load_config(self, config_file: str) -> Dict:
@@ -42,11 +42,13 @@ class TwitterMonitor:
             print(f"Config file {config_file} not found. Please create it with required API keys.")
             return {}
     
-    def setup_gemini(self):
-        """Initialize Gemini API"""
-        genai.configure(api_key=self.config.get('gemini_api_key'))
-        model_name = self.config.get('gemini_model', 'gemini-2.0-flash')
-        self.model = genai.GenerativeModel(model_name)
+    def setup_openai(self):
+        """Initialize OpenAI API"""
+        api_key = self.config.get('openai_api_key') or os.getenv('OPENAI_API_KEY')
+        if not api_key:
+            raise ValueError("OpenAI API key not found in config or environment")
+        self.client = OpenAI(api_key=api_key)
+        self.model_name = self.config.get('openai_model', 'gpt-4o')
     
     def fetch_twitter_data(self, username: str) -> List[Tweet]:
         """Fetch recent tweets from a Twitter username using TwitterAPI.io"""
@@ -239,8 +241,15 @@ class TwitterMonitor:
             """
 
             try:
-                resp = self.model.generate_content(prompt)
-                result_text = (resp.text or '').strip()
+                resp = self.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=[
+                        {"role": "system", "content": "You are a competitive intelligence analyst. Analyze social media posts and return structured JSON data."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.7
+                )
+                result_text = (resp.choices[0].message.content or '').strip()
 
                 # Clean common formatting wrappers from LLMs
                 cleaned = result_text

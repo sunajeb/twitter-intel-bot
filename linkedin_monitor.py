@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 LinkedIn Monitor - Direct implementation without API/database dependencies
-Fetches LinkedIn posts from ScrapIn, analyzes with Gemini, and sends to Slack
+Fetches LinkedIn posts from ScrapIn, analyzes with OpenAI GPT-4o, and sends to Slack
 """
 
 import requests
@@ -10,7 +10,7 @@ import json
 import os
 import time
 import random
-import google.generativeai as genai
+from openai import OpenAI
 from typing import List, Dict, Optional
 import re
 
@@ -22,14 +22,13 @@ class LinkedInMonitor:
         # Check for GitHub Actions environment
         if os.getenv('GITHUB_ACTIONS'):
             print("Running in GitHub Actions environment")
-        
-        # Configure Gemini
-        gemini_key = self.config.get('gemini_api_key') or os.getenv('GEMINI_API_KEY')
-        if not gemini_key:
-            raise ValueError("Gemini API key not found in config or environment")
-        genai.configure(api_key=gemini_key)
-        model_name = self.config.get('gemini_model') or os.getenv('GEMINI_MODEL') or 'gemini-2.0-flash'
-        self.model = genai.GenerativeModel(model_name)
+
+        # Configure OpenAI
+        openai_key = self.config.get('openai_api_key') or os.getenv('OPENAI_API_KEY')
+        if not openai_key:
+            raise ValueError("OpenAI API key not found in config or environment")
+        self.client = OpenAI(api_key=openai_key)
+        self.model_name = self.config.get('openai_model') or os.getenv('OPENAI_MODEL') or 'gpt-4o'
         
         # ScrapIn API configuration
         self.scrapin_api_key = self.config.get('scrapin_api_key') or os.getenv('SCRAPIN_API')
@@ -236,8 +235,15 @@ class LinkedInMonitor:
         """
         
         try:
-            response = self.model.generate_content(prompt)
-            result_text = response.text.strip()
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[
+                    {"role": "system", "content": "You are a competitive intelligence analyst. Analyze social media posts and return structured JSON data."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7
+            )
+            result_text = response.choices[0].message.content.strip()
             
             # Clean up the response - remove markdown code blocks if present
             if result_text.startswith('```json'):
@@ -277,7 +283,7 @@ class LinkedInMonitor:
                 return {}
         
         except Exception as e:
-            print(f"Error analyzing posts with Gemini: {e}")
+            print(f"Error analyzing posts with OpenAI: {e}")
             return {}
     
     def format_for_slack(self, analysis: Dict, date: str) -> str:
